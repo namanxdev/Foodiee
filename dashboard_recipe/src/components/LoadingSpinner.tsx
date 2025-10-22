@@ -9,7 +9,7 @@ export default function LoadingSpinner({ message = "Loading..." }: { message?: s
           🍳
         </div>
       </div>
-      <p className="text-gray-600 font-medium animate-pulse">{message}</p>
+      <p className="text-gray-600 dark:text-gray-400 font-medium animate-pulse">{message}</p>
     </div>
   );
 }

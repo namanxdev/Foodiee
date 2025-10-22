@@ -25,7 +25,7 @@ export default function RecipeDetails({ recipeName, recipeData, onStartCooking, 
         Back to Recipes
       </button>
 
-      <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
+      <div className="bg-white dark:bg-gradient-to-br dark:from-gray-800 dark:to-gray-900 rounded-3xl shadow-2xl overflow-hidden dark:shadow-gray-900/50">
         {/* Header */}
         <div className="bg-gradient-to-r from-green-500 via-teal-500 to-blue-500 p-8 text-white">
           <h2 className="text-4xl font-bold mb-2">{recipeName}</h2>
@@ -42,11 +42,11 @@ export default function RecipeDetails({ recipeName, recipeData, onStartCooking, 
                 </div>
                 Ingredients
               </h3>
-              <div className="whitespace-pre-wrap text-gray-700 leading-relaxed mt-4 space-y-2">
+              <div className="whitespace-pre-wrap text-black dark:text-gray-200 leading-relaxed mt-4 space-y-2">
                 {recipeData.ingredients.split('\n').map((line, index) => (
                   <div
                     key={index}
-                    className="flex items-start gap-3 p-3 bg-white rounded-lg hover:bg-green-50 transition-all transform hover:translate-x-2 duration-200"
+                    className="flex items-start gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg hover:bg-green-50 dark:hover:bg-gray-600 transition-all transform hover:translate-x-2 duration-200"
                   >
                     <span className="text-green-500 font-bold">•</span>
                     <div className="flex-1">
@@ -71,12 +71,12 @@ export default function RecipeDetails({ recipeName, recipeData, onStartCooking, 
                 {recipeData.steps.slice(0, 3).map((step, index) => (
                   <div
                     key={index}
-                    className="flex items-start gap-4 p-4 bg-white rounded-xl hover:shadow-md transition-all"
+                    className="flex items-start gap-4 p-4 bg-white dark:bg-gray-700 rounded-xl hover:shadow-md transition-all"
                   >
                     <div className="bg-gradient-to-br from-blue-500 to-cyan-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold flex-shrink-0">
                       {index + 1}
                     </div>
-                    <div className="text-gray-700 leading-relaxed">
+                    <div className="leading-relaxed">
                       <MarkdownRenderer content={step} />
                     </div>
                   </div>
@@ -103,7 +103,7 @@ export default function RecipeDetails({ recipeName, recipeData, onStartCooking, 
                   </div>
                   Cooking Tips
                 </h3>
-                <div className="mt-4 p-4 bg-white rounded-xl">
+                <div className="mt-4 p-4 bg-white dark:bg-gray-700 rounded-xl">
                   <MarkdownRenderer content={recipeData.tips} />
                 </div>
               </div>
