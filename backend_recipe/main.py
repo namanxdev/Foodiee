@@ -200,16 +200,36 @@ def initialize_image_generation():
     
     try:
         import torch
+        import platform
         from diffusers import StableDiffusionPipeline
         
-        if not torch.cuda.is_available():
-            print("⚠️  CUDA not available. Image generation will use text descriptions only.")
-            return
+        # Detect device
+        os_name = platform.system()
+        device = None
+        dtype = torch.float32
         
-        print("🎮 GPU detected! Initializing Stable Diffusion...")
+        if os_name == "Darwin" and torch.backends.mps.is_available():
+            # macOS with Metal GPU
+            device = "mps"
+            print("🍎 macOS detected - Using Apple Metal Performance Shaders (MPS)")
+            print("   • GPU acceleration enabled")
+            
+        elif torch.cuda.is_available():
+            # Linux/Windows with NVIDIA GPU
+            device = "cuda"
+            dtype = torch.float16
+            print(f"🎮 NVIDIA GPU detected - Using CUDA")
+            print(f"   • GPU: {torch.cuda.get_device_name(0)}")
+            print(f"   • VRAM: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.2f} GB")
+            
+        else:
+            print("⚠️  No GPU detected. Image generation will use CPU (very slow).")
+            print("   Recommendation: Image generation requires GPU for reasonable performance")
+            device = "cpu"
         
-        device = "cuda"
-        dtype = torch.float16
+        print(f"\n📥 Loading Stable Diffusion model...")
+        print(f"   (First time: ~4-5GB download)")
+        
         model_id = "runwayml/stable-diffusion-v1-5"
         
         stable_diffusion_pipe = StableDiffusionPipeline.from_pretrained(
@@ -218,13 +238,18 @@ def initialize_image_generation():
             safety_checker=None,
             requires_safety_checker=False
         )
-        print(stable_diffusion_pipe)
+        
         stable_diffusion_pipe = stable_diffusion_pipe.to(device)
-        stable_diffusion_pipe.enable_attention_slicing()
-        stable_diffusion_pipe.enable_vae_slicing()
+        
+        # Enable memory optimizations
+        if device in ["cuda", "mps"]:
+            stable_diffusion_pipe.enable_attention_slicing()
+            if device == "cuda":
+                stable_diffusion_pipe.enable_vae_slicing()
+            print(f"🔧 Memory optimizations enabled for {device}")
         
         IMAGE_GENERATION_ENABLED = True
-        print("✅ Image generation enabled with GPU!")
+        print(f"✅ Image generation enabled with {device}!")
         
     except ImportError:
         print("⚠️  PyTorch/Diffusers not installed. Image generation disabled.")
@@ -448,22 +473,31 @@ Your prompt:""")
         try:
             import torch
             import gc
+            import platform
             
             with torch.inference_mode():
-                image = stable_diffusion_pipe(
-                    image_prompt,
-                    num_inference_steps=30,
-                    guidance_scale=7.5,
-                    height=512,
-                    width=512
-                ).images[0]
+                with torch.autocast(device_type="cpu"):  # Auto-cast for better performance
+                    image = stable_diffusion_pipe(
+                        image_prompt,
+                        num_inference_steps=30,
+                        guidance_scale=7.5,
+                        height=512,
+                        width=512
+                    ).images[0]
             
-            torch.cuda.empty_cache()
+            # Clear memory based on device
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            if platform.system() == "Darwin" and torch.backends.mps.is_available():
+                torch.mps.empty_cache()
+            
             gc.collect()
             
             return image, image_prompt
         except Exception as e:
             print(f"Error generating image: {e}")
+            import traceback
+            traceback.print_exc()
             return None, image_prompt
     
     def get_ingredient_alternatives(self, missing_ingredient: str, recipe_context: str):
