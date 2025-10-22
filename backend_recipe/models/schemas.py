@@ -3,7 +3,7 @@ Pydantic models for Recipe Recommender API
 """
 
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 class UserPreferencesRequest(BaseModel):
     region: str
@@ -47,3 +47,18 @@ class IngredientAlternativesRequest(BaseModel):
 class IngredientAlternativesResponse(BaseModel):
     alternatives: str
     success: bool
+
+# ============================================================
+# User Management Models
+# ============================================================
+
+class UserSignInRequest(BaseModel):
+    email: str
+    name: Optional[str] = None
+    image: Optional[str] = None
+    google_id: Optional[str] = None
+
+class UserResponse(BaseModel):
+    success: bool
+    message: str
+    user: Optional[Dict] = None
