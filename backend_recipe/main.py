@@ -8,10 +8,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict
 import os
-from dotenv import load_dotenv
 import warnings
+from dotenv import load_dotenv
+import uuid
 from io import BytesIO
 import base64
+from model.User_model import user_model
 
 # LangChain imports
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
@@ -88,6 +90,17 @@ class IngredientAlternativesRequest(BaseModel):
 class IngredientAlternativesResponse(BaseModel):
     alternatives: str
     success: bool
+
+class UserSignInRequest(BaseModel):
+    email: str
+    name: Optional[str] = None
+    image: Optional[str] = None
+    google_id: Optional[str] = None
+
+class UserResponse(BaseModel):
+    success: bool
+    message: str
+    user: Optional[Dict] = None
 
 # ============================================================
 # Global Variables for Session State
@@ -510,6 +523,73 @@ async def root():
         "rag_enabled": recipe_vector_store is not None,
         "image_generation": "gpu" if IMAGE_GENERATION_ENABLED else "text_only"
     }
+
+# ============================================================
+# User Management Routes
+# ============================================================
+
+@app.post("/api/user/signin", response_model=UserResponse)
+async def user_signin(user_data: UserSignInRequest):
+    """
+    Create or update user when they sign in with NextAuth
+    Call this endpoint from your NextAuth callback
+    """
+    try:
+        result = user_model.create_or_update_user({
+            "email": user_data.email,
+            "name": user_data.name,
+            "image": user_data.image,
+            "google_id": user_data.google_id
+        })
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/user/{email}")
+async def get_user(email: str):
+    """Get user information by email"""
+    try:
+        user = user_model.get_user_by_email(email)
+        if user:
+            return {"success": True, "user": user}
+        else:
+            raise HTTPException(status_code=404, detail="User not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/user/{email}/preferences")
+async def update_user_preferences(email: str, preferences: UserPreferencesRequest):
+    """Update user's food preferences"""
+    try:
+        preferences_dict = {
+            "region": preferences.region,
+            "taste_preferences": preferences.taste_preferences,
+            "meal_type": preferences.meal_type,
+            "time_available": preferences.time_available,
+            "allergies": preferences.allergies,
+            "dislikes": preferences.dislikes,
+            "available_ingredients": preferences.available_ingredients
+        }
+        result = user_model.update_user_preferences(email, preferences_dict)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/user/{email}/preferences")
+async def get_user_preferences_endpoint(email: str):
+    """Get user's saved preferences"""
+    try:
+        preferences = user_model.get_user_preferences(email)
+        if preferences:
+            return {"success": True, "preferences": preferences}
+        else:
+            return {"success": False, "message": "No preferences found"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================================
+# Recipe Routes
+# ============================================================
 
 @app.post("/api/preferences", response_model=RecipeRecommendationResponse)
 async def submit_preferences(preferences: UserPreferencesRequest):

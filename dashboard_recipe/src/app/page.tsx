@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { FaUtensils, FaPaperPlane, FaArrowRight, FaImage, FaForward } from "react-icons/fa";
+import { useState, useEffect } from "react";
+import { useSession, signIn, signOut } from "next-auth/react";
+import { FaUtensils, FaPaperPlane, FaArrowRight, FaImage, FaForward, FaSignOutAlt } from "react-icons/fa";
+import { FcGoogle } from "react-icons/fc";
 
 export default function Home() {
+  const { data: session, status } = useSession();
   const [step, setStep] = useState<"preferences" | "chat">("preferences");
   const [sessionId, setSessionId] = useState("");
   const [loading, setLoading] = useState(false);
@@ -148,16 +151,81 @@ export default function Home() {
       {/* Header */}
       <header className="bg-gradient-to-r from-orange-500 to-red-500 shadow-lg">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <FaUtensils className="text-white text-3xl" />
-            <h1 className="text-3xl font-bold text-white">Foodiee</h1>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <FaUtensils className="text-white text-3xl" />
+              <h1 className="text-3xl font-bold text-white">Foodiee</h1>
+            </div>
+            
+            {/* User Info & Sign Out */}
+            {session?.user && (
+              <div className="flex items-center gap-4">
+                <div className="text-white text-right">
+                  <p className="font-medium">{session.user.name}</p>
+                  <p className="text-sm text-orange-100">{session.user.email}</p>
+                </div>
+                {session.user.image && (
+                  <img 
+                    src={session.user.image} 
+                    alt={session.user.name || "User"} 
+                    className="w-10 h-10 rounded-full border-2 border-white"
+                  />
+                )}
+                <button
+                  onClick={() => signOut()}
+                  className="bg-white text-orange-500 px-4 py-2 rounded-lg font-medium hover:bg-orange-50 transition flex items-center gap-2"
+                >
+                  <FaSignOutAlt /> Sign Out
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        {/* Authentication Gate */}
+        {status === "loading" && (
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center">
+              <span className="loading loading-spinner loading-lg text-orange-500"></span>
+              <p className="mt-4 text-gray-600">Loading...</p>
+            </div>
+          </div>
+        )}
+
+        {status === "unauthenticated" && (
+          <div className="max-w-md mx-auto mt-20">
+            <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
+              <div className="mb-6">
+                <FaUtensils className="text-orange-500 text-6xl mx-auto mb-4" />
+                <h2 className="text-3xl font-bold text-gray-800 mb-2">Welcome to Foodiee</h2>
+                <p className="text-gray-600">Your personal AI cooking assistant</p>
+              </div>
+              
+              <div className="space-y-4">
+                <p className="text-gray-700">Sign in to get personalized recipe recommendations and step-by-step cooking guidance</p>
+                
+                <button
+                  onClick={() => signIn("google")}
+                  className="w-full bg-white border-2 border-gray-300 hover:border-orange-500 text-gray-700 font-semibold py-4 px-6 rounded-lg transition-all flex items-center justify-center gap-3 hover:shadow-lg"
+                >
+                  <FcGoogle className="text-2xl" />
+                  <span>Sign in with Google</span>
+                </button>
+              </div>
+
+              <div className="mt-6 text-sm text-gray-500">
+                <p>✨ Get AI-powered recipe suggestions</p>
+                <p>👨‍🍳 Step-by-step cooking instructions</p>
+                <p>🖼️ Visual guides for each step</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* PREFERENCES FORM */}
-        {step === "preferences" && (
+        {status === "authenticated" && step === "preferences" && (
           <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl p-8">
             <h2 className="text-2xl font-bold mb-6 text-gray-800">Tell us your preferences</h2>
             
@@ -166,6 +234,7 @@ export default function Home() {
               <div>
                 <label className="block font-medium mb-2">Cuisine</label>
                 <select 
+                title="Your chat...."
                   className="w-full p-3 border rounded-lg"
                   value={preferences.region}
                   onChange={(e) => setPreferences({...preferences, region: e.target.value})}
@@ -270,7 +339,7 @@ export default function Home() {
         )}
 
         {/* CHAT INTERFACE */}
-        {step === "chat" && (
+        {status === "authenticated" && step === "chat" && (
           <div className="max-w-4xl mx-auto">
             {/* Messages */}
             <div className="bg-white rounded-2xl shadow-xl p-6 mb-4 h-[600px] overflow-y-auto">
