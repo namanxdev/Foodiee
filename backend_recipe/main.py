@@ -2,6 +2,10 @@
 FastAPI Backend for Recipe Recommendation System with RAG + Image Generation
 """
 
+# Fix macOS OpenMP duplicate initialization error
+import os
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -214,7 +218,7 @@ def initialize_image_generation():
             safety_checker=None,
             requires_safety_checker=False
         )
-        
+        print(stable_diffusion_pipe)
         stable_diffusion_pipe = stable_diffusion_pipe.to(device)
         stable_diffusion_pipe.enable_attention_slicing()
         stable_diffusion_pipe.enable_vae_slicing()
@@ -438,6 +442,7 @@ Your prompt:""")
         image_prompt = self.generate_image_prompt(recipe_name, step_description)
         
         if not IMAGE_GENERATION_ENABLED or stable_diffusion_pipe is None:
+            print("⚠️  Image generation not enabled or Stable Diffusion not initialized.")
             return None, image_prompt
         
         try:
@@ -471,6 +476,59 @@ Your prompt:""")
 
 # Global recommender instance
 recommender = None
+
+# ============================================================
+# Helper Functions
+# ============================================================
+
+def get_session_history(session_id: str) -> List[Dict]:
+    """
+    Retrieve complete step history for a session.
+    Returns list of step objects from start to current position.
+    
+    Example:
+        history = get_session_history("session_abc123")
+        # Returns: [
+        #     {"step_number": 1, "step_text": "STEP 1: ...", "timestamp": "2025-10-22T...", "image_generated": false, "image_prompt": null},
+        #     {"step_number": 2, "step_text": "STEP 2: ...", "timestamp": "2025-10-22T...", "image_generated": true, "image_prompt": "..."},
+        # ]
+    """
+    if session_id not in user_sessions:
+        return []
+    
+    session = user_sessions[session_id]
+    return session.get("recipe_history", [])
+
+@app.get("/api/history/{session_id}")
+async def get_recipe_history(session_id: str):
+    """
+    API endpoint to retrieve the complete step history for a session.
+    """
+    if session_id not in user_sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    history = get_session_history(session_id)
+    
+    return {
+        "session_id": session_id,
+        "history": history,
+        "total_steps": len(history),
+        "success": True
+    }
+
+def get_session_history_text(session_id: str) -> str:
+    """
+    Get formatted text of all completed steps for context (useful for prompts).
+    """
+    history = get_session_history(session_id)
+    if not history:
+        return "No steps completed yet."
+    
+    text_parts = ["Previously completed steps:"]
+    for entry in history:
+        text_parts.append(f"- {entry['step_text']}")
+    
+    return "\n".join(text_parts)
 
 # ============================================================
 # Startup Event
@@ -538,7 +596,8 @@ User Preferences:
             "preferences": preferences_str,
             "current_recipe": None,
             "current_step_index": 0,
-            "recipe_steps": []
+            "recipe_steps": [],
+            "recipe_history": []  # ✨ Track all completed steps
         }
         
         # Get recommendations
@@ -578,6 +637,7 @@ async def get_recipe_details(request: RecipeDetailRequest, session_id: str):
         session["current_step_index"] = 0
         session["ingredients"] = parsed["ingredients"]
         session["tips"] = parsed["tips"]
+        session["recipe_history"] = []  # Reset history for new recipe
         
         return RecipeDetailResponse(
             recipe_name=request.recipe_name,
@@ -610,6 +670,14 @@ async def next_step(session_id: str):
         steps = session["recipe_steps"]
         
         if current_index >= len(steps):
+            print({
+                "step": None,
+                "step_number": current_index,
+                "total_steps": len(steps),
+                "completed": True,
+                "message": "All steps completed!",
+                "tips": session.get("tips", "")
+            })
             return {
                 "step": None,
                 "step_number": current_index,
@@ -621,6 +689,25 @@ async def next_step(session_id: str):
         
         current_step = steps[current_index]
         session["current_step_index"] = current_index + 1
+        
+        # Add to history
+        from datetime import datetime
+        history_entry = {
+            "step_number": current_index + 1,
+            "step_text": current_step,
+            "timestamp": datetime.now().isoformat(),
+            "image_generated": False,
+            "image_prompt": None
+        }
+        session["recipe_history"].append(history_entry)
+        
+        print({
+            "step": current_step,
+            "step_number": current_index + 1,
+            "total_steps": len(steps),
+            "completed": False,
+            "message": "Success"
+        })
         
         return {
             "step": current_step,
@@ -660,8 +747,16 @@ async def generate_step_image(session_id: str):
         current_step = steps[current_index - 1]
         recipe_name = session["current_recipe"]
         
+        # Get history context
+        history_text = get_session_history_text(session_id)
+        
         # Generate image
         image, description = recommender.generate_image(recipe_name, current_step)
+        
+        # Update history to mark image was generated for this step
+        if session["recipe_history"] and session["recipe_history"][-1]["step_number"] == current_index:
+            session["recipe_history"][-1]["image_generated"] = True
+            session["recipe_history"][-1]["image_prompt"] = description
         
         if image:
             # Convert PIL image to base64
@@ -760,6 +855,24 @@ async def get_session_info(session_id: str):
         "has_recipe": session.get("current_recipe") is not None
     }
 
+@app.get("/api/session/{session_id}/history")
+async def get_session_step_history(session_id: str):
+    """
+    Get complete step history for a session.
+    Returns all steps completed from start to current position with metadata.
+    """
+    if session_id not in user_sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    history = get_session_history(session_id)
+    
+    return {
+        "session_id": session_id,
+        "history": history,
+        "total_completed_steps": len(history),
+        "success": True
+    }
+
 @app.delete("/api/session/{session_id}")
 async def delete_session(session_id: str):
     """
@@ -790,5 +903,5 @@ if __name__ == "__main__":
         "main:app",
         host="0.0.0.0",
         port=8000,
-        reload=True
+        # reload=True
     )
