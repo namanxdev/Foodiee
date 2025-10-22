@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { FaClock, FaArrowLeft, FaChevronRight } from "react-icons/fa";
+import MarkdownRenderer from "./MarkdownRenderer";
 
 interface RecipeListProps {
   recommendations: string;
@@ -78,9 +79,10 @@ export default function RecipeList({ recommendations, sessionId, onSelectRecipe,
         <div className="p-8">
           {/* Full Recommendations */}
           <div className="prose max-w-none mb-8 p-6 bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl">
-            <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
-              {recommendations}
-            </div>
+            <MarkdownRenderer 
+              content={recommendations} 
+              className="leading-relaxed"
+            />
           </div>
 
           {/* Recipe Cards */}

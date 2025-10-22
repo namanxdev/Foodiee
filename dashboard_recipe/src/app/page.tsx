@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { FaUtensils, FaPaperPlane, FaArrowRight, FaImage, FaForward } from "react-icons/fa";
+import MarkdownRenderer from "../components/MarkdownRenderer";
 
 export default function Home() {
   const [step, setStep] = useState<"preferences" | "chat">("preferences");
@@ -85,7 +86,7 @@ export default function Home() {
         method: "POST",
       });
       const data = await response.json();
-      
+      console.log(data);
       if (data.completed) {
         setMessages(prev => [...prev, { role: "assistant", content: "🎉 Congratulations! You've completed all steps!\n\n" + data.tips }]);
       } else {
@@ -281,7 +282,7 @@ export default function Home() {
                       ? "bg-orange-500 text-white" 
                       : "bg-gray-100 text-gray-800"
                   }`}>
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                    <MarkdownRenderer content={msg.content} />
                     {msg.image && (
                       <img src={msg.image} alt="Step" className="mt-3 rounded-lg max-w-full" />
                     )}

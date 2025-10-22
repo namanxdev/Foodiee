@@ -1,6 +1,7 @@
 "use client";
 
 import { FaArrowLeft, FaPlay, FaListUl, FaLightbulb } from "react-icons/fa";
+import MarkdownRenderer from "./MarkdownRenderer";
 
 interface RecipeDetailsProps {
   recipeName: string;
@@ -48,7 +49,9 @@ export default function RecipeDetails({ recipeName, recipeData, onStartCooking, 
                     className="flex items-start gap-3 p-3 bg-white rounded-lg hover:bg-green-50 transition-all transform hover:translate-x-2 duration-200"
                   >
                     <span className="text-green-500 font-bold">•</span>
-                    <span>{line}</span>
+                    <div className="flex-1">
+                      <MarkdownRenderer content={line} />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -73,7 +76,9 @@ export default function RecipeDetails({ recipeName, recipeData, onStartCooking, 
                     <div className="bg-gradient-to-br from-blue-500 to-cyan-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold flex-shrink-0">
                       {index + 1}
                     </div>
-                    <p className="text-gray-700 leading-relaxed">{step}</p>
+                    <div className="text-gray-700 leading-relaxed">
+                      <MarkdownRenderer content={step} />
+                    </div>
                   </div>
                 ))}
                 
@@ -98,8 +103,8 @@ export default function RecipeDetails({ recipeName, recipeData, onStartCooking, 
                   </div>
                   Cooking Tips
                 </h3>
-                <div className="whitespace-pre-wrap text-gray-700 leading-relaxed mt-4 p-4 bg-white rounded-xl">
-                  {recipeData.tips}
+                <div className="mt-4 p-4 bg-white rounded-xl">
+                  <MarkdownRenderer content={recipeData.tips} />
                 </div>
               </div>
             </div>

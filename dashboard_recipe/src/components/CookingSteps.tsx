@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { FaArrowLeft, FaArrowRight, FaImage, FaCheckCircle, FaQuestionCircle } from "react-icons/fa";
+import MarkdownRenderer from "./MarkdownRenderer";
 
 interface CookingStepsProps {
   sessionId: string;
@@ -111,7 +112,7 @@ export default function CookingSteps({ sessionId, recipeName, steps, onFinish, o
                 <h3 className="font-bold text-lg mb-2 text-amber-700 flex items-center justify-center gap-2">
                   <FaCheckCircle /> Final Tips
                 </h3>
-                <p className="text-gray-700 whitespace-pre-wrap">{currentStepData.tips}</p>
+                <MarkdownRenderer content={currentStepData.tips} />
               </div>
             )}
 
@@ -152,7 +153,7 @@ export default function CookingSteps({ sessionId, recipeName, steps, onFinish, o
                   {alternatives && (
                     <div className="mt-4 p-4 bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl">
                       <h4 className="font-bold mb-2 text-orange-700">Alternatives:</h4>
-                      <div className="whitespace-pre-wrap text-gray-700">{alternatives}</div>
+                      <MarkdownRenderer content={alternatives} />
                     </div>
                   )}
                 </div>
