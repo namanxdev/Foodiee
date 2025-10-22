@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { FaClock, FaArrowLeft, FaChevronRight } from "react-icons/fa";
+import MarkdownRenderer from "./MarkdownRenderer";
 
 interface RecipeListProps {
   recommendations: string;
@@ -67,20 +68,21 @@ export default function RecipeList({ recommendations, sessionId, onSelectRecipe,
         Back to Preferences
       </button>
 
-      <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
+            <div className="bg-white dark:bg-gradient-to-br dark:from-gray-800 dark:to-gray-900 rounded-3xl shadow-2xl overflow-hidden dark:shadow-gray-900/50">
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 p-8 text-white">
-          <h2 className="text-4xl font-bold mb-2">Your Recipe Recommendations</h2>
-          <p className="text-pink-100">Pick a recipe that catches your eye!</p>
+        <div className="bg-gradient-to-r from-green-500 via-teal-500 to-blue-500 p-8 text-white">
+          <h2 className="text-4xl font-bold mb-2">Recommended Recipes</h2>
+          <p className="text-green-100">Choose one to start cooking!</p>
         </div>
 
         {/* Content */}
         <div className="p-8">
           {/* Full Recommendations */}
           <div className="prose max-w-none mb-8 p-6 bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl">
-            <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
-              {recommendations}
-            </div>
+            <MarkdownRenderer 
+              content={recommendations} 
+              className="leading-relaxed"
+            />
           </div>
 
           {/* Recipe Cards */}
@@ -122,7 +124,7 @@ export default function RecipeList({ recommendations, sessionId, onSelectRecipe,
           {recipes.length === 0 && (
             <div className="text-center py-12">
               <div className="text-6xl mb-4">🍳</div>
-              <p className="text-gray-500 text-lg">Select a recipe from the recommendations above</p>
+              <p className="text-gray-500 dark:text-gray-400 text-lg">Select a recipe from the recommendations above</p>
             </div>
           )}
         </div>

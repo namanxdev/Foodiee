@@ -74,23 +74,26 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="bg-white rounded-3xl shadow-2xl overflow-hidden transform hover:scale-[1.01] transition-all duration-300">
+      <div className="bg-white dark:bg-gradient-to-br dark:from-gray-800 dark:via-gray-850 dark:to-orange-900/20 rounded-3xl shadow-2xl overflow-hidden transform hover:scale-[1.01] transition-all duration-300 dark:shadow-orange-900/20">
         {/* Header */}
         <div className="bg-gradient-to-r from-orange-500 to-red-500 p-8 text-white">
           <h2 className="text-4xl font-bold mb-2">Tell Us Your Preferences</h2>
           <p className="text-orange-100">Let's find the perfect recipe for you!</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8 space-y-6">
+        <form onSubmit={handleSubmit} className="p-8 space-y-6" style={{
+          color: 'var(--foreground)',
+          backgroundColor: 'var(--background)'
+        }}>
           {/* Region */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text text-lg font-semibold flex items-center gap-2">
+              <span className="label-text text-lg font-semibold flex items-center gap-2 text-black dark:text-white">
                 <FaGlobe className="text-orange-500" /> Cuisine Preference
               </span>
             </label>
             <select
-              className="select select-bordered w-full bg-gradient-to-r from-orange-50 to-amber-50 hover:shadow-lg transition-all focus:border-orange-500"
+              className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-black dark:text-white hover:shadow-lg transition-all focus:border-orange-500 focus:outline-none"
               value={formData.region}
               onChange={(e) => setFormData({ ...formData, region: e.target.value })}
               required
@@ -106,7 +109,7 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
           {/* Taste Preferences */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text text-lg font-semibold flex items-center gap-2">
+              <span className="label-text text-lg font-semibold flex items-center gap-2 text-black dark:text-white">
                 <FaUtensils className="text-orange-500" /> Taste Preferences
               </span>
             </label>
@@ -124,7 +127,7 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
                   className={`px-4 py-2 rounded-full font-medium transition-all duration-300 transform hover:scale-105 ${
                     formData.taste_preferences.includes(taste)
                       ? "bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      : "bg-gray-200 dark:bg-slate-700 text-black dark:text-white hover:bg-gray-300 dark:hover:bg-slate-600 border border-gray-300 dark:border-slate-500"
                   }`}
                 >
                   {taste}
@@ -136,7 +139,7 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
           {/* Meal Type */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text text-lg font-semibold">Meal Type</span>
+              <span className="label-text text-lg font-semibold text-black dark:text-white">Meal Type</span>
             </label>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               {mealTypes.map((meal) => (
@@ -147,7 +150,7 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
                   className={`p-4 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 hover:shadow-lg ${
                     formData.meal_type === meal
                       ? "bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-lg"
-                      : "bg-gradient-to-br from-orange-50 to-amber-50 text-gray-700 hover:from-orange-100 hover:to-amber-100"
+                      : "bg-gray-200 dark:bg-gradient-to-br dark:from-gray-600 dark:to-gray-700 text-black dark:text-white hover:bg-gray-300 dark:hover:from-orange-600/20 dark:hover:to-orange-700/20 border border-gray-300 dark:border-orange-500/30"
                   }`}
                 >
                   {meal}
@@ -159,7 +162,7 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
           {/* Time Available */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text text-lg font-semibold flex items-center gap-2">
+              <span className="label-text text-lg font-semibold flex items-center gap-2 text-black dark:text-white">
                 <FaClock className="text-orange-500" /> Time Available
               </span>
             </label>
@@ -172,7 +175,7 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
                   className={`p-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
                     formData.time_available === time
                       ? "bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-lg"
-                      : "bg-gradient-to-br from-orange-50 to-amber-50 text-gray-700 hover:from-orange-100 hover:to-amber-100"
+                      : "bg-gray-200 dark:bg-gradient-to-br dark:from-gray-600 dark:to-gray-700 text-black dark:text-white hover:bg-gray-300 dark:hover:from-orange-600/20 dark:hover:to-orange-700/20 border border-gray-300 dark:border-orange-500/30"
                   }`}
                 >
                   {time}
@@ -184,7 +187,7 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
           {/* Allergies */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text text-lg font-semibold flex items-center gap-2">
+              <span className="label-text text-lg font-semibold flex items-center gap-2 text-black dark:text-white">
                 <FaAllergies className="text-red-500" /> Allergies (Optional)
               </span>
             </label>
@@ -192,7 +195,7 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
               <input
                 type="text"
                 placeholder="Add allergy..."
-                className="input input-bordered flex-1 focus:border-orange-500"
+                className="flex-1 p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-black dark:text-white focus:border-orange-500 focus:outline-none"
                 value={tempInput.allergies}
                 onChange={(e) => setTempInput({ ...tempInput, allergies: e.target.value })}
                 onKeyPress={(e) => {
@@ -218,7 +221,7 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
               {formData.allergies.map((allergy, index) => (
                 <span
                   key={index}
-                  className="badge badge-lg bg-red-100 text-red-700 gap-2 p-3 hover:bg-red-200 transition-all cursor-pointer"
+                  className="badge badge-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 gap-2 p-3 hover:bg-red-200 dark:hover:bg-red-900/50 transition-all cursor-pointer"
                   onClick={() => removeTag("allergies", index)}
                 >
                   {allergy} ✕
@@ -230,7 +233,7 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
           {/* Dislikes */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text text-lg font-semibold flex items-center gap-2">
+              <span className="label-text text-lg font-semibold flex items-center gap-2 text-black dark:text-white">
                 <FaThumbsDown className="text-orange-500" /> Dislikes (Optional)
               </span>
             </label>
@@ -238,7 +241,7 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
               <input
                 type="text"
                 placeholder="Add disliked ingredient..."
-                className="input input-bordered flex-1 focus:border-orange-500"
+                className="flex-1 p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-black dark:text-white focus:border-orange-500 focus:outline-none"
                 value={tempInput.dislikes}
                 onChange={(e) => setTempInput({ ...tempInput, dislikes: e.target.value })}
                 onKeyPress={(e) => {
@@ -264,7 +267,7 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
               {formData.dislikes.map((dislike, index) => (
                 <span
                   key={index}
-                  className="badge badge-lg bg-orange-100 text-orange-700 gap-2 p-3 hover:bg-orange-200 transition-all cursor-pointer"
+                  className="badge badge-lg bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 gap-2 p-3 hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-all cursor-pointer"
                   onClick={() => removeTag("dislikes", index)}
                 >
                   {dislike} ✕
@@ -276,7 +279,7 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
           {/* Available Ingredients */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text text-lg font-semibold flex items-center gap-2">
+              <span className="label-text text-lg font-semibold flex items-center gap-2 text-black dark:text-white">
                 <FaShoppingBasket className="text-green-500" /> Available Ingredients
               </span>
             </label>
@@ -284,7 +287,7 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
               <input
                 type="text"
                 placeholder="Add ingredient..."
-                className="input input-bordered flex-1 focus:border-orange-500"
+                className="flex-1 p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-black dark:text-white focus:border-orange-500 focus:outline-none"
                 value={tempInput.ingredients}
                 onChange={(e) => setTempInput({ ...tempInput, ingredients: e.target.value })}
                 onKeyPress={(e) => {
@@ -310,7 +313,7 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
               {formData.available_ingredients.map((ingredient, index) => (
                 <span
                   key={index}
-                  className="badge badge-lg bg-green-100 text-green-700 gap-2 p-3 hover:bg-green-200 transition-all cursor-pointer"
+                  className="badge badge-lg bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 gap-2 p-3 hover:bg-green-200 dark:hover:bg-green-900/50 transition-all cursor-pointer"
                   onClick={() => removeTag("available_ingredients", index)}
                 >
                   {ingredient} ✕

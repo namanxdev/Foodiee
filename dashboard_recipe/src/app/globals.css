@@ -25,3 +25,185 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Dark theme page background */
+@media (prefers-color-scheme: dark) {
+  body {
+    background: linear-gradient(135deg, #1f2937 0%, #111827 100%) !important;
+  }
+}
+
+/* Dark theme fixes for form elements */
+:root {
+  --select-bg: white;
+  --select-text: black;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --select-bg: #374151;
+    --select-text: white;
+  }
+  
+  select {
+    background-color: #374151 !important;
+    color: #ffffff !important;
+    border-color: #4b5563 !important;
+  }
+  
+  select option {
+    background-color: #374151 !important;
+    color: #ffffff !important;
+  }
+  
+  input {
+    background-color: #374151 !important;
+    color: #ffffff !important;
+    border-color: #4b5563 !important;
+  }
+  
+  input::placeholder {
+    color: #9ca3af !important;
+  }
+  
+  .select-bordered {
+    border-color: #4b5563 !important;
+  }
+  
+  .input-bordered {
+    border-color: #4b5563 !important;
+  }
+  
+  /* Fix for all text in dark mode */
+  .dark, [data-theme="dark"] {
+    color: #ffffff;
+  }
+  
+  .dark select, [data-theme="dark"] select {
+    background-color: #374151 !important;
+    color: #ffffff !important;
+    border-color: #4b5563 !important;
+  }
+  
+  .dark select option, [data-theme="dark"] select option {
+    background-color: #374151 !important;
+    color: #ffffff !important;
+  }
+  
+  .dark input, [data-theme="dark"] input {
+    background-color: #374151 !important;
+    color: #ffffff !important;
+    border-color: #4b5563 !important;
+  }
+}
+
+/* Additional global dark mode styles */
+.dark {
+  color-scheme: dark;
+}
+
+html.dark select {
+  background-color: #374151 !important;
+  color: #ffffff !important;
+  border-color: #4b5563 !important;
+}
+
+html.dark select option {
+  background-color: #374151 !important;
+  color: #ffffff !important;
+}
+
+html.dark input {
+  background-color: #374151 !important;
+  color: #ffffff !important;
+  border-color: #4b5563 !important;
+}
+
+html.dark input::placeholder {
+  color: #9ca3af !important;
+}
+
+/* Force dark mode styles */
+body.dark, body[data-theme="dark"], .dark {
+  background-color: #111827 !important;
+  color: #ffffff !important;
+}
+
+body.dark select, body[data-theme="dark"] select, .dark select {
+  background-color: #374151 !important;
+  color: #ffffff !important;
+  border-color: #4b5563 !important;
+}
+
+body.dark select option, body[data-theme="dark"] select option, .dark select option {
+  background-color: #374151 !important;
+  color: #ffffff !important;
+}
+
+body.dark input, body[data-theme="dark"] input, .dark input {
+  background-color: #374151 !important;
+  color: #ffffff !important;
+  border-color: #4b5563 !important;
+}
+
+body.dark input::placeholder, body[data-theme="dark"] input::placeholder, .dark input::placeholder {
+  color: #9ca3af !important;
+}
+
+/* Proper Dark Mode Implementation */
+@media (prefers-color-scheme: dark) {
+  /* Base dark theme colors */
+  body {
+    background-color: #0f172a;
+    color: #f1f5f9;
+  }
+  
+  /* Form elements in dark mode */
+  select, input {
+    background-color: #1e293b !important;
+    color: #f1f5f9 !important;
+    border-color: #334155 !important;
+  }
+  
+  select:focus, input:focus {
+    border-color: #f97316 !important;
+    outline: none !important;
+  }
+  
+  /* Let buttons use their Tailwind classes naturally - no overrides */
+}
+
+/* Custom dark mode button class */
+.dark-mode-button {
+  background-color: #4b5563 !important;
+  color: white !important;
+  border: 1px solid #6b7280 !important;
+}
+
+.dark-mode-button:hover {
+  background-color: #374151 !important;
+}
+
+/* Force dark mode on all elements when system prefers dark */
+@media (prefers-color-scheme: dark) {
+  * {
+    border-color: #4b5563;
+  }
+  
+  body, html {
+    background-color: #111827 !important;
+    color: #ffffff !important;
+  }
+  
+  .bg-white {
+    background-color: #1f2937 !important;
+  }
+  
+  [class*="bg-gray-100"] {
+    background-color: #4b5563 !important;
+  }
+  
+  [class*="text-gray-700"] {
+    color: #e5e7eb !important;
+  }
+}

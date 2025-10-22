@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { FaArrowLeft, FaArrowRight, FaImage, FaCheckCircle, FaQuestionCircle } from "react-icons/fa";
+import MarkdownRenderer from "./MarkdownRenderer";
 
 interface CookingStepsProps {
   sessionId: string;
@@ -104,14 +105,12 @@ export default function CookingSteps({ sessionId, recipeName, steps, onFinish, o
           <div className="card-body items-center text-center p-12">
             <div className="text-8xl mb-6 animate-bounce">🎉</div>
             <h2 className="card-title text-4xl mb-4 text-green-700">Congratulations!</h2>
-            <p className="text-xl text-gray-700 mb-6">You've completed all the cooking steps!</p>
+            <p className="text-xl text-black dark:text-gray-200 mb-6">You've completed all the cooking steps!</p>
             
             {currentStepData.tips && (
-              <div className="bg-white p-6 rounded-2xl shadow-lg max-w-2xl mb-6">
-                <h3 className="font-bold text-lg mb-2 text-amber-700 flex items-center justify-center gap-2">
-                  <FaCheckCircle /> Final Tips
-                </h3>
-                <p className="text-gray-700 whitespace-pre-wrap">{currentStepData.tips}</p>
+              <div className="mt-6 p-4 bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 rounded-xl">
+                <h4 className="font-bold mb-2 text-amber-700 dark:text-amber-300">💡 Chef's Tips:</h4>
+                <MarkdownRenderer content={currentStepData.tips} />
               </div>
             )}
 
@@ -126,10 +125,10 @@ export default function CookingSteps({ sessionId, recipeName, steps, onFinish, o
               </button>
 
               {showAlternatives && (
-                <div className="bg-white p-6 rounded-2xl shadow-lg">
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg">
                   <div className="form-control">
                     <label className="label">
-                      <span className="label-text font-semibold">Missing Ingredient:</span>
+                      <span className="label-text font-semibold text-black dark:text-white">Missing Ingredient:</span>
                     </label>
                     <div className="flex gap-2">
                       <input
@@ -152,7 +151,7 @@ export default function CookingSteps({ sessionId, recipeName, steps, onFinish, o
                   {alternatives && (
                     <div className="mt-4 p-4 bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl">
                       <h4 className="font-bold mb-2 text-orange-700">Alternatives:</h4>
-                      <div className="whitespace-pre-wrap text-gray-700">{alternatives}</div>
+                      <MarkdownRenderer content={alternatives} />
                     </div>
                   )}
                 </div>
@@ -203,8 +202,8 @@ export default function CookingSteps({ sessionId, recipeName, steps, onFinish, o
             </div>
 
             {/* Current Step */}
-            <div className="bg-white p-6 rounded-2xl shadow-lg mb-6">
-              <p className="text-lg text-gray-800 leading-relaxed">{currentStepData.step}</p>
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg mb-6">
+              <p className="text-lg text-black dark:text-gray-200 leading-relaxed">{currentStepData.step}</p>
             </div>
 
             {/* Action Buttons */}
@@ -246,15 +245,15 @@ export default function CookingSteps({ sessionId, recipeName, steps, onFinish, o
           <div className="card-body items-center justify-center">
             {!imageData && !imageLoading && (
               <div className="text-center py-12">
-                <FaImage className="text-8xl text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">Click "Generate Visual Guide" to see an image</p>
+                <FaImage className="text-8xl text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">Click "Generate Visual Guide" to see an image</p>
               </div>
             )}
 
             {imageLoading && (
               <div className="text-center py-12">
                 <span className="loading loading-spinner loading-lg text-purple-500"></span>
-                <p className="text-gray-600 mt-4">Generating image...</p>
+                <p className="text-gray-600 dark:text-gray-400 mt-4">Generating image...</p>
               </div>
             )}
 
@@ -268,16 +267,16 @@ export default function CookingSteps({ sessionId, recipeName, steps, onFinish, o
                       className="w-full rounded-xl shadow-lg"
                     />
                   ) : (
-                    <div className="bg-white p-8 rounded-xl">
+                    <div className="bg-white dark:bg-gray-800 p-8 rounded-xl">
                       <div className="text-6xl text-center mb-4">🎨</div>
-                      <p className="text-gray-600 text-center text-sm">(GPU not available - showing description)</p>
+                      <p className="text-gray-600 dark:text-gray-400 text-center text-sm">(GPU not available - showing description)</p>
                     </div>
                   )}
                 </div>
                 
-                <div className="bg-white p-4 rounded-xl shadow-lg">
-                  <h4 className="font-bold text-purple-700 mb-2">Image Description:</h4>
-                  <p className="text-gray-700 text-sm leading-relaxed">{imageData.description}</p>
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-lg">
+                  <h4 className="font-bold text-purple-700 dark:text-purple-400 mb-2">Image Description:</h4>
+                  <p className="text-black dark:text-gray-200 text-sm leading-relaxed">{imageData.description}</p>
                   <div className="badge badge-sm bg-purple-100 text-purple-700 mt-2">
                     {imageData.generation_type === "gpu" ? "🎮 GPU Generated" : "📝 Text Only"}
                   </div>

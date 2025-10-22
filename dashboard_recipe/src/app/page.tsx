@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { FaUtensils, FaPaperPlane, FaArrowRight, FaImage, FaForward, FaSignOutAlt } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
+import MarkdownRenderer from "../components/MarkdownRenderer";
+
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -88,7 +90,7 @@ export default function Home() {
         method: "POST",
       });
       const data = await response.json();
-      
+      console.log(data);
       if (data.completed) {
         setMessages(prev => [...prev, { role: "assistant", content: "🎉 Congratulations! You've completed all steps!\n\n" + data.tips }]);
       } else {
@@ -147,7 +149,7 @@ export default function Home() {
   const times = ["15-30 mins", "30-45 mins", "45-60 mins", "1+ hour"];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 dark:bg-slate-900">
       {/* Header */}
       <header className="bg-gradient-to-r from-orange-500 to-red-500 shadow-lg">
         <div className="container mx-auto px-4 py-4">
@@ -225,9 +227,10 @@ export default function Home() {
         )}
 
         {/* PREFERENCES FORM */}
-        {status === "authenticated" && step === "preferences" && (
-          <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl p-8">
-            <h2 className="text-2xl font-bold mb-6 text-gray-800">Tell us your preferences</h2>
+        {step === "preferences" && (
+          <div className="max-w-2xl mx-auto bg-white dark:bg-gradient-to-br dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-xl p-8 dark:shadow-gray-900/50">
+            <h2 className="text-2xl font-bold mb-6 text-black dark:text-white">Tell us your preferences</h2>
+
             
             <div className="space-y-4">
               {/* Region */}
@@ -261,7 +264,7 @@ export default function Home() {
                       className={`px-4 py-2 rounded-full ${
                         preferences.taste_preferences.includes(taste)
                           ? "bg-orange-500 text-white"
-                          : "bg-gray-200"
+                          : "bg-gray-700"
                       }`}
                     >
                       {taste}
@@ -342,15 +345,15 @@ export default function Home() {
         {status === "authenticated" && step === "chat" && (
           <div className="max-w-4xl mx-auto">
             {/* Messages */}
-            <div className="bg-white rounded-2xl shadow-xl p-6 mb-4 h-[600px] overflow-y-auto">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 mb-4 h-[600px] overflow-y-auto dark:shadow-slate-900/50">
               {messages.map((msg, idx) => (
                 <div key={idx} className={`mb-4 ${msg.role === "user" ? "text-right" : ""}`}>
                   <div className={`inline-block max-w-[80%] p-4 rounded-2xl ${
                     msg.role === "user" 
                       ? "bg-orange-500 text-white" 
-                      : "bg-gray-100 text-gray-800"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
                   }`}>
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                    <MarkdownRenderer content={msg.content} />
                     {msg.image && (
                       <img src={msg.image} alt="Step" className="mt-3 rounded-lg max-w-full" />
                     )}
@@ -359,12 +362,12 @@ export default function Home() {
                   {/* Show recipe selection buttons after first message */}
                   {idx === 0 && msg.role === "assistant" && !currentRecipe && (
                     <div className="mt-4 space-y-2 text-left">
-                      <p className="text-sm text-gray-600 mb-2">Select a recipe to start:</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Select a recipe to start:</p>
                       {["Recipe 1", "Recipe 2", "Recipe 3"].map((recipe, i) => (
                         <button
                           key={i}
                           onClick={() => selectRecipe(recipe)}
-                          className="block w-full text-left bg-orange-100 hover:bg-orange-200 p-3 rounded-lg transition"
+                          className="block w-full text-left bg-orange-100 hover:bg-orange-200 p-3 rounded-lg transition dark:text-gray-900 dark:bg-orange-200"
                         >
                           Select {recipe}
                         </button>
@@ -383,12 +386,12 @@ export default function Home() {
 
             {/* Action Buttons */}
             {currentRecipe && (
-              <div className="bg-white rounded-2xl shadow-xl p-4">
+              <div className="bg-white dark:bg-gradient-to-br dark:from-gray-800 dark:via-gray-850 dark:to-orange-900/10 rounded-2xl shadow-xl p-4 dark:shadow-orange-900/20">
                 <div className="flex gap-3">
                   <button
                     onClick={handleNextStep}
                     disabled={loading}
-                    className="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2"
+                    className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 shadow-lg transform hover:scale-105 transition-all duration-200"
                   >
                     <FaArrowRight /> Next Step
                   </button>
@@ -396,7 +399,7 @@ export default function Home() {
                   <button
                     onClick={handleGenerateImage}
                     disabled={loading}
-                    className="flex-1 bg-purple-500 hover:bg-purple-600 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2"
+                    className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 shadow-lg transform hover:scale-105 transition-all duration-200"
                   >
                     <FaImage /> Generate Image
                   </button>
@@ -404,14 +407,14 @@ export default function Home() {
                   <button
                     onClick={handleSkip}
                     disabled={loading}
-                    className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2"
+                    className="flex-1 bg-gradient-to-r from-gray-500 to-slate-500 hover:from-gray-600 hover:to-slate-600 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 shadow-lg transform hover:scale-105 transition-all duration-200"
                   >
                     <FaForward /> Skip
                   </button>
                 </div>
                 
                 {currentStep > 0 && (
-                  <div className="mt-3 text-center text-sm text-gray-600">
+                  <div className="mt-3 text-center text-sm text-gray-600 dark:text-gray-400">
                     Step {currentStep} of {totalSteps}
                   </div>
                 )}
