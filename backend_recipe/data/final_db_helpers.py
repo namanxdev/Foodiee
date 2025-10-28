@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 # Constants
 STEP_DELIMITER = '<STEP_DELIMITER>'
-DB_PATH = '/Users/chetanr/internship/Foodiee/backend_recipe/data/top_recipes_final.db'
+DB_PATH = 'backend_recipe/data/top_recipies/top_recipes_final.db'
 
 
 @dataclass

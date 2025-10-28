@@ -14,7 +14,7 @@ from dataclasses import dataclass, asdict
 STEP_DELIMITER = '<STEP_DELIMITER>'
 DB_PATH = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), 
-    'data', 
+    'data/top_recipes', 
     'top_recipes_final.db'
 )
 
