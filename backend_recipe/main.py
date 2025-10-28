@@ -50,50 +50,50 @@ recommender = None
 # Startup Event
 # ============================================================
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize all components on startup"""
-    global recommender
+# @app.on_event("startup")
+# async def startup_event():
+#     """Initialize all components on startup"""
+#     global recommender
     
-    print("🚀 Starting Recipe Recommender API...")
+#     print("🚀 Starting Recipe Recommender API...")
     
-    try:
-        # Initialize all components
-        print("🔧 Initializing components...")
-        initialize_all()
+#     try:
+#         # Initialize all components
+#         print("🔧 Initializing components...")
+#         initialize_all()
         
-        # Create recommender instance (optimized if database available)
-        print("\n🤖 Creating RecipeRecommender instance...")
+#         # Create recommender instance (optimized if database available)
+#         print("\n🤖 Creating RecipeRecommender instance...")
         
-        if config.recipe_db:
-            # Use optimized recommender with database (3-5x faster!)
-            from core.optimized_recommender import OptimizedRecipeRecommender
-            recommender = OptimizedRecipeRecommender(config.recipe_db)
-            print("✅ Using OPTIMIZED RecipeRecommender (database-first)")
-            print("   💡 Supports 100+ concurrent users with 3-5x faster responses!")
-        else:
-            # Fallback to traditional recommender
-            recommender = RecipeRecommender()
-            print("✅ Using traditional RecipeRecommender (PDF/LLM-based)")
-            print("   💡 To scale, run: python scripts/populate_recipes.py")
+#         if config.recipe_db:
+#             # Use optimized recommender with database (3-5x faster!)
+#             from core.optimized_recommender import OptimizedRecipeRecommender
+#             recommender = OptimizedRecipeRecommender(config.recipe_db)
+#             print("✅ Using OPTIMIZED RecipeRecommender (database-first)")
+#             print("   💡 Supports 100+ concurrent users with 3-5x faster responses!")
+#         else:
+#             # Fallback to traditional recommender
+#             recommender = RecipeRecommender()
+#             print("✅ Using traditional RecipeRecommender (PDF/LLM-based)")
+#             print("   💡 To scale, run: python scripts/populate_recipes.py")
         
-        # Set recommender in all API modules
-        print("🔗 Setting recommender in API modules...")
-        set_preferences_recommender(recommender)
-        set_recipes_recommender(recommender)
-        set_images_recommender(recommender)
-        print("✅ Recommender set in all API modules")
+#         # Set recommender in all API modules
+#         print("🔗 Setting recommender in API modules...")
+#         set_preferences_recommender(recommender)
+#         set_recipes_recommender(recommender)
+#         set_images_recommender(recommender)
+#         print("✅ Recommender set in all API modules")
         
-        print("\n✅ API is ready!")
-        print(f"✅ Database RAG: {'Enabled (727 recipes with embeddings)' if config.recipe_db else 'Disabled'}")
-        print(f"✅ PDF RAG: {'Enabled' if recipe_vector_store else 'Disabled (not needed with Database RAG)'}")
-        print(f"✅ Recipe DB: {'Enabled' if config.recipe_db else 'Disabled'}")
-        print(f"✅ Image Generation: {'GPU-Enabled' if IMAGE_GENERATION_ENABLED else 'Text-Only'}")
-    except Exception as e:
-        print(f"❌ Startup error: {e}")
-        import traceback
-        traceback.print_exc()
-        raise
+#         print("\n✅ API is ready!")
+#         print(f"✅ Database RAG: {'Enabled (727 recipes with embeddings)' if config.recipe_db else 'Disabled'}")
+#         print(f"✅ PDF RAG: {'Enabled' if recipe_vector_store else 'Disabled (not needed with Database RAG)'}")
+#         print(f"✅ Recipe DB: {'Enabled' if config.recipe_db else 'Disabled'}")
+#         print(f"✅ Image Generation: {'GPU-Enabled' if IMAGE_GENERATION_ENABLED else 'Text-Only'}")
+#     except Exception as e:
+#         print(f"❌ Startup error: {e}")
+#         import traceback
+#         traceback.print_exc()
+#         raise
 
 # ============================================================
 # Include API Routes
