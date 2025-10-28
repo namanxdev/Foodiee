@@ -95,3 +95,35 @@ async def generate_step_image(session_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+@router.post("/step/gemini_image", response_model=ImageGenerationResponse)
+async def generate_gemini_image(session_id: str):
+    """
+    Generate image for the current step using Gemini image model
+    """
+    try:
+        if recommender is None:
+            raise HTTPException(status_code=503, detail="Recommender not initialized")
+        
+        image_data, description, current_index = recommender.gemini_image_generator(session_id)
+        
+        session = user_sessions.get(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        if session["recipe_history"] and session["recipe_history"][-1]["step_number"] == current_index:
+            session["recipe_history"][-1]["image_generated"] = bool(image_data)
+            session["recipe_history"][-1]["image_prompt"] = description
+        
+        return ImageGenerationResponse(
+            image_data=image_data,
+            description=description,
+            success=True,
+            generation_type="gemini"
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Error: {str(exc)}")

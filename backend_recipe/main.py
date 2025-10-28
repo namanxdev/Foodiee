@@ -17,7 +17,8 @@ from api import (
     recipes_router, 
     sessions_router,
     images_router,
-    users_router
+    users_router,
+    top_recipes_router
 )
 from api.preferences import set_recommender as set_preferences_recommender
 from api.recipes import set_recommender as set_recipes_recommender
@@ -103,6 +104,7 @@ app.include_router(recipes_router)
 app.include_router(sessions_router)
 app.include_router(images_router)
 app.include_router(users_router)
+app.include_router(top_recipes_router)  # New top recipes endpoint
 
 # ============================================================
 # Basic Routes

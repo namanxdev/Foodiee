@@ -4,11 +4,13 @@ Recipe Recommender Core Class
 
 import base64
 import gc
+import os
 import platform
 from io import BytesIO
 from typing import Optional, Tuple
 
 import torch
+from google import genai
 from langchain_core.output_parsers import StrOutputParser
 
 from config import (
@@ -193,6 +195,64 @@ class RecipeRecommender:
             import traceback
             traceback.print_exc()
             return None, image_prompt
+    
+    def gemini_image_generator(self, session_id: str) -> Tuple[Optional[str], str, int]:
+        """Generate an image via Gemini using session context."""
+        from config import user_sessions
+        from helpers import get_session_history_text
+        
+        if session_id not in user_sessions:
+            raise ValueError("Session not found")
+        
+        session = user_sessions[session_id]
+        recipe_steps = session.get("recipe_steps") or []
+        if not recipe_steps:
+            raise ValueError("No recipe loaded")
+        
+        current_index = session.get("current_step_index", 0)
+        if current_index == 0:
+            current_index = 1
+        if current_index > len(recipe_steps):
+            raise ValueError("No more steps")
+        
+        recipe_name = session.get("current_recipe", "Recipe")
+        current_step = recipe_steps[current_index - 1]
+        history_text = get_session_history_text(session_id)
+        
+        prompt = (
+            f"Recipe: {recipe_name}\n"
+            f"{history_text}\n\n"
+            "Visualize the current cooking action in realistic food photography style.\n"
+            f"Focus on: {current_step}"
+        )
+        
+        api_key = os.environ.get("GOOGLE_API_KEY")
+        if not api_key:
+            raise ValueError("GOOGLE_API_KEY not configured")
+        
+        client = genai.Client(api_key=api_key)
+        
+        try:
+            result = client.models.generate_images(
+                model="gemini-2.0-flash-preview-image-generation",
+                prompt=prompt,
+            )
+        except Exception as exc:
+            raise ValueError(f"Gemini image generation failed: {exc}") from exc
+        
+        image_base64 = None
+        if result and getattr(result, "generated_images", None):
+            primary = result.generated_images[0]
+            image_bytes = None
+            if hasattr(primary, "image") and getattr(primary.image, "image_bytes", None):
+                image_bytes = primary.image.image_bytes
+            elif hasattr(primary, "image_bytes"):
+                image_bytes = primary.image_bytes
+            
+            if image_bytes:
+                image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+        
+        return image_base64, prompt, current_index
     
     def get_ingredient_alternatives(self, missing_ingredient: str, recipe_context: str):
         """Get ingredient alternatives"""
