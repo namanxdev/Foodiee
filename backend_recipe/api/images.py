@@ -46,11 +46,24 @@ async def generate_step_image(session_id: str):
         current_step = steps[current_index - 1]
         recipe_name = session["current_recipe"]
         
+        # Get recipe ID if using optimized recommender
+        recipe_id = session.get("current_recipe_id", "unknown")
+        
         # Get history context
         history_text = get_session_history_text(session_id)
         
-        # Generate image
-        image, description = recommender.generate_image(recipe_name, current_step)
+        # Generate image with proper parameters
+        # Check if recommender has the optimized signature (4 params)
+        try:
+            image, description = recommender.generate_image(
+                recipe_id, 
+                recipe_name, 
+                current_step, 
+                current_index
+            )
+        except TypeError:
+            # Fallback to old signature (2 params) for traditional recommender
+            image, description = recommender.generate_image(recipe_name, current_step)
         
         # Update history to mark image was generated for this step
         if session["recipe_history"] and session["recipe_history"][-1]["step_number"] == current_index:

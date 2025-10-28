@@ -72,14 +72,21 @@ class RecipeRecommender:
                 | self.llm
                 | StrOutputParser()
             )
-            return rag_chain.invoke(search_query)
+            result = rag_chain.invoke(search_query)
         else:
             print("🔍 Debug: Using simple chain (no RAG)")
             if self.llm is None:
                 raise ValueError("LLM is not initialized. Check your configuration.")
             
             chain = self.recipe_prompt | self.llm | StrOutputParser()
-            return chain.invoke({"preferences": preferences_str})
+            result = chain.invoke({"preferences": preferences_str})
+        
+        # For compatibility with OptimizedRecipeRecommender, return dict format
+        # (Traditional recommender doesn't have recipe mapping since it generates on the fly)
+        return {
+            "response": result,
+            "recipe_mapping": {}  # Empty for traditional recommender
+        }
     
     def get_detailed_recipe(self, recipe_name: str, preferences_str: str):
         """Get detailed recipe instructions"""

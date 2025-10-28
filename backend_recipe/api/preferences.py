@@ -49,10 +49,20 @@ User Preferences:
             "current_recipe": None,
             "current_step_index": 0,
             "recipe_steps": [],
-            "recipe_history": []  # ✨ Track all completed steps
+            "recipe_history": [],  # ✨ Track all completed steps
+            "recipe_mapping": {}  # Map "Recipe 1" -> actual database name
         }
 
-        recommendations = recommender.recommend_recipes(preferences_str)
+        # Get recommendations
+        recommendations_result = recommender.recommend_recipes(preferences_str)
+        
+        # Handle both old (string) and new (dict) return formats
+        if isinstance(recommendations_result, dict):
+            recommendations = recommendations_result["response"]
+            user_sessions[session_id]["recipe_mapping"] = recommendations_result.get("recipe_mapping", {})
+            print(f"   💾 Stored recipe mapping: {recommendations_result.get('recipe_mapping', {})}")
+        else:
+            recommendations = recommendations_result  # Legacy string format
 
         return RecipeRecommendationResponse(
             recommendations=recommendations,

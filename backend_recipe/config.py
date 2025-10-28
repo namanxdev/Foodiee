@@ -34,6 +34,9 @@ stable_diffusion_pipe = None
 IMAGE_GENERATION_ENABLED = False
 connection_string: Optional[str] = None
 
+# Recipe Database (NEW - for scaling)
+recipe_db = None
+
 # Store user sessions (in production, use Redis or database)
 user_sessions: Dict[str, dict] = {}
 
@@ -294,18 +297,53 @@ def initialize_image_generation():
     except Exception as e:
         print(f"⚠️  Could not initialize image generation: {e}")
 
+def initialize_recipe_database():
+    """Initialize recipe database for scaling"""
+    global recipe_db
+    
+    print("\n📊 Initializing Recipe Database...")
+    
+    supabase_url = os.environ.get("SUPABASE_OG_URL")
+    if not supabase_url:
+        print("⚠️  SUPABASE_OG_URL not found - running without recipe database")
+        print("   Note: For scaling to 100+ users, populate the recipe database")
+        return
+    
+    try:
+        from database.db_helpers import RecipeDatabase
+        recipe_db = RecipeDatabase(supabase_url)
+        
+        # Test connection
+        stats = recipe_db.get_stats()
+        print(f"✅ Recipe Database connected!")
+        print(f"   📚 Recipes: {stats.get('total_recipes', 0)}")
+        print(f"   🌍 Cuisines: {stats.get('cuisines', 0)}")
+        
+        if stats.get('total_recipes', 0) == 0:
+            print("   ⚠️  No recipes found in database")
+            print("   💡 Run: python scripts/populate_recipes.py")
+            print("   💡 This enables 3-5x faster recommendations!")
+    except Exception as e:
+        print(f"⚠️  Could not initialize recipe database: {e}")
+        print("   Falling back to PDF-only mode")
+        recipe_db = None
+
 def initialize_all():
     """Initialize all components"""
     print("🚀 Initializing Recipe Recommender API...")
     
     try:
         initialize_ai_models()
+        initialize_recipe_database()  # NEW: Initialize recipe database
         load_recipe_vector_store()
         initialize_image_generation()
         
+        print("\n" + "="*60)
         print("✅ All components initialized!")
         print(f"✅ RAG Status: {'Enabled' if recipe_vector_store else 'Disabled'}")
+        print(f"✅ Recipe DB: {'Enabled' if recipe_db else 'Disabled (PDF-only mode)'}")
         print(f"✅ Image Generation: {'GPU-Enabled' if IMAGE_GENERATION_ENABLED else 'Text-Only'}")
+        print("="*60)
     except Exception as e:
         print(f"❌ Initialization error: {e}")
         raise
@@ -333,3 +371,7 @@ def get_image_generation_enabled():
 def get_stable_diffusion_pipe():
     """Get the current stable diffusion pipeline"""
     return stable_diffusion_pipe
+
+def get_recipe_db():
+    """Get the current recipe database instance"""
+    return recipe_db

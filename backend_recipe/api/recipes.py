@@ -36,14 +36,27 @@ async def get_recipe_details(request: RecipeDetailRequest, session_id: str):
         session = user_sessions[session_id]
         preferences_str = session["preferences"]
         
+        # 🔥 Check if user sent a placeholder name like "Recipe 1", "Recipe 2"
+        # Map it to the actual database recipe name
+        recipe_name = request.recipe_name
+        recipe_mapping = session.get("recipe_mapping", {})
+        
+        if recipe_name in recipe_mapping:
+            actual_name = recipe_mapping[recipe_name]
+            print(f"   🔄 Mapped '{recipe_name}' → '{actual_name}'")
+            recipe_name = actual_name
+        
+        print(f"   📤 Calling get_detailed_recipe with: '{recipe_name}'")  # Debug log
+        
         # Get detailed recipe
-        detailed_recipe = recommender.get_detailed_recipe(request.recipe_name, preferences_str)
+        detailed_recipe = recommender.get_detailed_recipe(recipe_name, preferences_str)
         
         # Parse recipe
         parsed = recommender.parse_recipe_steps(detailed_recipe)
         
         # Update session
-        session["current_recipe"] = request.recipe_name
+        session["current_recipe"] = recipe_name
+        session["current_recipe_id"] = detailed_recipe.get('id', 'unknown')  # Store recipe ID
         session["recipe_steps"] = parsed["steps"]
         session["current_step_index"] = 0
         session["ingredients"] = parsed["ingredients"]
@@ -51,7 +64,7 @@ async def get_recipe_details(request: RecipeDetailRequest, session_id: str):
         session["recipe_history"] = []  # Reset history for new recipe
         
         return RecipeDetailResponse(
-            recipe_name=request.recipe_name,
+            recipe_name=recipe_name,
             ingredients=parsed["ingredients"],
             steps=parsed["steps"],
             tips=parsed["tips"],
