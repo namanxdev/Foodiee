@@ -159,7 +159,6 @@ class RecipeRecommender:
     def generate_image(self, recipe_name: str, step_description: str) -> Tuple[Optional[object], str]:
         """Generate image using Stable Diffusion"""
         from config import get_image_generation_enabled, get_stable_diffusion_pipe
-        
         # Generate prompt
         image_prompt = self.generate_image_prompt(recipe_name, step_description)
         
@@ -196,35 +195,9 @@ class RecipeRecommender:
             traceback.print_exc()
             return None, image_prompt
     
-    def gemini_image_generator(self, session_id: str) -> Tuple[Optional[str], str, int]:
+    def gemini_image_generator(self,recipe_name:str, step_description: str) -> Tuple[Optional[str], str]:
         """Generate an image via Gemini using session context."""
-        from config import user_sessions
-        from helpers import get_session_history_text
-        
-        if session_id not in user_sessions:
-            raise ValueError("Session not found")
-        
-        session = user_sessions[session_id]
-        recipe_steps = session.get("recipe_steps") or []
-        if not recipe_steps:
-            raise ValueError("No recipe loaded")
-        
-        current_index = session.get("current_step_index", 0)
-        if current_index == 0:
-            current_index = 1
-        if current_index > len(recipe_steps):
-            raise ValueError("No more steps")
-        
-        recipe_name = session.get("current_recipe", "Recipe")
-        current_step = recipe_steps[current_index - 1]
-        history_text = get_session_history_text(session_id)
-        
-        prompt = (
-            f"Recipe: {recipe_name}\n"
-            f"{history_text}\n\n"
-            "Visualize the current cooking action in realistic food photography style.\n"
-            f"Focus on: {current_step}"
-        )
+        image_prompt = self.generate_image_prompt(recipe_name, step_description)
         
         api_key = os.environ.get("GOOGLE_API_KEY")
         if not api_key:
@@ -234,8 +207,8 @@ class RecipeRecommender:
         
         try:
             result = client.models.generate_images(
-                model="gemini-2.0-flash-preview-image-generation",
-                prompt=prompt,
+                model="imagen-4.0-generate-001",
+                prompt=image_prompt,
             )
         except Exception as exc:
             raise ValueError(f"Gemini image generation failed: {exc}") from exc
@@ -252,7 +225,7 @@ class RecipeRecommender:
             if image_bytes:
                 image_base64 = base64.b64encode(image_bytes).decode("utf-8")
         
-        return image_base64, prompt, current_index
+        return image_base64, image_prompt
     
     def get_ingredient_alternatives(self, missing_ingredient: str, recipe_context: str):
         """Get ingredient alternatives"""

@@ -69,15 +69,30 @@ class TopRecipeSummary:
 # ============================================================================
 
 def deserialize_tastes(tastes_str: Optional[str]) -> List[Tuple[str, int]]:
-    """Parse tastes string: 'Spicy:4|Savory:5' → [('Spicy', 4), ('Savory', 5)]"""
+    """Parse tastes string: 'Spicy:4|Savory:5' OR JSON → [('Spicy', 4), ('Savory', 5)]"""
     if not tastes_str:
         return []
     
+    # Handle JSON format (from migrated data)
+    if tastes_str.strip().startswith('['):
+        import json
+        try:
+            taste_list = json.loads(tastes_str)
+            return [(t['name'], t['intensity']) for t in taste_list]
+        except:
+            return []
+    
+    # Handle pipe-delimited format (from original test data)
     tastes = []
     for entry in tastes_str.split('|'):
         if ':' in entry:
-            name, intensity = entry.split(':')
-            tastes.append((name, int(intensity)))
+            parts = entry.split(':', 1)  # Split on first colon only
+            if len(parts) == 2:
+                name, intensity = parts
+                try:
+                    tastes.append((name.strip(), int(intensity.strip())))
+                except ValueError:
+                    continue
     return tastes
 
 
@@ -92,11 +107,28 @@ def deserialize_ingredients(ingredients_str: Optional[str]) -> List[Dict[str, st
     """
     Parse ingredients multi-line format:
     '750|grams|Chicken|cut into pieces\\n2|tbsp|Garam Masala|'
+    OR JSON format from migrated data
     → [{'quantity': '750', 'unit': 'grams', 'name': 'Chicken', 'preparation_note': 'cut into pieces'}, ...]
     """
     if not ingredients_str:
         return []
     
+    # Handle JSON format (from migrated data)
+    if ingredients_str.strip().startswith('['):
+        import json
+        try:
+            ingredients_list = json.loads(ingredients_str)
+            # Convert to expected format
+            return [{
+                'quantity': ing.get('quantity', ''),
+                'unit': ing.get('unit', ''),
+                'name': ing.get('name', ''),
+                'preparation_note': ing.get('preparation', ing.get('preparation_note', '')) or ''
+            } for ing in ingredients_list]
+        except:
+            return []
+    
+    # Handle pipe-delimited format (from original test data)
     ingredients = []
     for line in ingredients_str.strip().split('\n'):
         if not line:
