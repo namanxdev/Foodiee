@@ -4,11 +4,13 @@ Recipe Recommender Core Class
 
 import base64
 import gc
+import os
 import platform
 from io import BytesIO
 from typing import Optional, Tuple
 
 import torch
+from google import genai
 from langchain_core.output_parsers import StrOutputParser
 
 from config import (
@@ -157,7 +159,6 @@ class RecipeRecommender:
     def generate_image(self, recipe_name: str, step_description: str) -> Tuple[Optional[object], str]:
         """Generate image using Stable Diffusion"""
         from config import get_image_generation_enabled, get_stable_diffusion_pipe
-        
         # Generate prompt
         image_prompt = self.generate_image_prompt(recipe_name, step_description)
         
@@ -193,6 +194,38 @@ class RecipeRecommender:
             import traceback
             traceback.print_exc()
             return None, image_prompt
+    
+    def gemini_image_generator(self,recipe_name:str, step_description: str) -> Tuple[Optional[str], str]:
+        """Generate an image via Gemini using session context."""
+        image_prompt = self.generate_image_prompt(recipe_name, step_description)
+        
+        api_key = os.environ.get("GOOGLE_API_KEY")
+        if not api_key:
+            raise ValueError("GOOGLE_API_KEY not configured")
+        
+        client = genai.Client(api_key=api_key)
+        
+        try:
+            result = client.models.generate_images(
+                model="imagen-4.0-generate-001",
+                prompt=image_prompt,
+            )
+        except Exception as exc:
+            raise ValueError(f"Gemini image generation failed: {exc}") from exc
+        
+        image_base64 = None
+        if result and getattr(result, "generated_images", None):
+            primary = result.generated_images[0]
+            image_bytes = None
+            if hasattr(primary, "image") and getattr(primary.image, "image_bytes", None):
+                image_bytes = primary.image.image_bytes
+            elif hasattr(primary, "image_bytes"):
+                image_bytes = primary.image_bytes
+            
+            if image_bytes:
+                image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+        
+        return image_base64, image_prompt
     
     def get_ingredient_alternatives(self, missing_ingredient: str, recipe_context: str):
         """Get ingredient alternatives"""

@@ -62,3 +62,83 @@ class UserResponse(BaseModel):
     success: bool
     message: str
     user: Optional[Dict] = None
+
+
+# ============================================================
+# Top Recipes Models (for top_recipes_final.db)
+# ============================================================
+
+class IngredientDetail(BaseModel):
+    """Single ingredient detail"""
+    quantity: str
+    unit: str
+    name: str
+    preparation_note: str = ""
+
+
+class TasteDetail(BaseModel):
+    """Taste with intensity"""
+    name: str
+    intensity: int  # 1-5
+
+
+class TopRecipeModel(BaseModel):
+    """Complete recipe model matching TopRecipe dataclass"""
+    id: int
+    name: str
+    description: Optional[str] = None
+    region: Optional[str] = None
+    tastes: List[TasteDetail] = []
+    meal_types: List[str] = []
+    dietary_tags: List[str] = []
+    difficulty: Optional[str] = None
+    prep_time_minutes: Optional[int] = None
+    cook_time_minutes: Optional[int] = None
+    total_time_minutes: Optional[int] = None
+    servings: Optional[int] = None
+    calories: Optional[int] = None
+    ingredients: List[IngredientDetail] = []
+    steps: List[str] = []
+    image_url: Optional[str] = None
+    step_image_urls: List[str] = []
+    rating: float = 0.0
+    popularity_score: float = 0.0
+    source: str = "gemini"
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class TopRecipeSummaryModel(BaseModel):
+    """Lightweight recipe summary for list views"""
+    id: int
+    name: str
+    description: Optional[str] = None
+    region: Optional[str] = None
+    difficulty: Optional[str] = None
+    total_time_minutes: Optional[int] = None
+    servings: Optional[int] = None
+    calories: Optional[int] = None
+    image_url: Optional[str] = None
+    rating: float = 0.0
+    popularity_score: float = 0.0
+    meal_types: List[str] = []
+    dietary_tags: List[str] = []
+
+
+class TopRecipesResponse(BaseModel):
+    """Response for get top recipes endpoint"""
+    recipes: List[TopRecipeModel] | List[TopRecipeSummaryModel]
+    total_count: int
+    page: int
+    page_size: int
+    total_pages: int
+    success: bool = True
+
+
+class AvailableFiltersResponse(BaseModel):
+    """Available filter options"""
+    regions: List[str]
+    difficulties: List[str]
+    meal_types: List[str]
+    dietary_tags: List[str]
+    success: bool = True

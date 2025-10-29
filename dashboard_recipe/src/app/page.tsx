@@ -5,6 +5,7 @@ import { useSession, signIn, signOut } from "next-auth/react";
 import { FaUtensils, FaPaperPlane, FaArrowRight, FaImage, FaForward, FaSignOutAlt } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
 import MarkdownRenderer from "../components/MarkdownRenderer";
+import TopRecipes from "../components/toprecipes/TopRecipes";
 
 
 export default function Home() {
@@ -227,118 +228,125 @@ export default function Home() {
         )}
 
         {/* PREFERENCES FORM */}
-        {step === "preferences" && (
-          <div className="max-w-2xl mx-auto bg-white dark:bg-gradient-to-br dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-xl p-8 dark:shadow-gray-900/50">
-            <h2 className="text-2xl font-bold mb-6 text-black dark:text-white">Tell us your preferences</h2>
+        {status === "authenticated" && step === "preferences" && (
+          <>
+            <div className="max-w-2xl mx-auto bg-white dark:bg-gradient-to-br dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-xl p-8 dark:shadow-gray-900/50">
+              <h2 className="text-2xl font-bold mb-6 text-black dark:text-white">Tell us your preferences</h2>
 
-            
-            <div className="space-y-4">
-              {/* Region */}
-              <div>
-                <label className="block font-medium mb-2">Cuisine</label>
-                <select 
-                title="Your chat...."
-                  className="w-full p-3 border rounded-lg"
-                  value={preferences.region}
-                  onChange={(e) => setPreferences({...preferences, region: e.target.value})}
+              
+              <div className="space-y-4">
+                {/* Region */}
+                <div>
+                  <label className="block font-medium mb-2">Cuisine</label>
+                  <select 
+                  title="Your chat...."
+                    className="w-full p-3 border rounded-lg"
+                    value={preferences.region}
+                    onChange={(e) => setPreferences({...preferences, region: e.target.value})}
+                  >
+                    <option value="">Select...</option>
+                    {regions.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+
+                {/* Taste */}
+                <div>
+                  <label className="block font-medium mb-2">Tastes</label>
+                  <div className="flex flex-wrap gap-2">
+                    {tastes.map(taste => (
+                      <button
+                        key={taste}
+                        type="button"
+                        onClick={() => {
+                          const newTastes = preferences.taste_preferences.includes(taste)
+                            ? preferences.taste_preferences.filter(t => t !== taste)
+                            : [...preferences.taste_preferences, taste];
+                          setPreferences({...preferences, taste_preferences: newTastes});
+                        }}
+                        className={`px-4 py-2 rounded-full ${
+                          preferences.taste_preferences.includes(taste)
+                            ? "bg-orange-500 text-white"
+                            : "bg-gray-700"
+                        }`}
+                      >
+                        {taste}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Meal Type */}
+                <div>
+                  <label className="block font-medium mb-2">Meal Type</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {mealTypes.map(meal => (
+                      <button
+                        key={meal}
+                        type="button"
+                        onClick={() => setPreferences({...preferences, meal_type: meal})}
+                        className={`p-3 rounded-lg ${
+                          preferences.meal_type === meal
+                            ? "bg-orange-500 text-white"
+                            : "bg-gray-100"
+                        }`}
+                      >
+                        {meal}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Time */}
+                <div>
+                  <label className="block font-medium mb-2">Time Available</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {times.map(time => (
+                      <button
+                        key={time}
+                        type="button"
+                        onClick={() => setPreferences({...preferences, time_available: time})}
+                        className={`p-3 rounded-lg ${
+                          preferences.time_available === time
+                            ? "bg-orange-500 text-white"
+                            : "bg-gray-100"
+                        }`}
+                      >
+                        {time}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Ingredients */}
+                <div>
+                  <label className="block font-medium mb-2">Available Ingredients (comma separated)</label>
+                  <input
+                    type="text"
+                    className="w-full p-3 border rounded-lg"
+                    placeholder="e.g., tomatoes, onions, chicken"
+                    onBlur={(e) => {
+                      const ingredients = e.target.value.split(',').map(i => i.trim()).filter(i => i);
+                      setPreferences({...preferences, available_ingredients: ingredients});
+                    }}
+                  />
+                </div>
+
+                {/* Submit */}
+                <button
+                  onClick={handleSubmitPreferences}
+                  disabled={loading || !preferences.region || preferences.taste_preferences.length === 0}
+                  className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white py-4 rounded-lg font-bold text-lg hover:from-orange-600 hover:to-red-600 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  <option value="">Select...</option>
-                  {regions.map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
+                  {loading ? <span className="loading loading-spinner"></span> : <><FaPaperPlane /> Find Recipes</>}
+                </button>
               </div>
-
-              {/* Taste */}
-              <div>
-                <label className="block font-medium mb-2">Tastes</label>
-                <div className="flex flex-wrap gap-2">
-                  {tastes.map(taste => (
-                    <button
-                      key={taste}
-                      type="button"
-                      onClick={() => {
-                        const newTastes = preferences.taste_preferences.includes(taste)
-                          ? preferences.taste_preferences.filter(t => t !== taste)
-                          : [...preferences.taste_preferences, taste];
-                        setPreferences({...preferences, taste_preferences: newTastes});
-                      }}
-                      className={`px-4 py-2 rounded-full ${
-                        preferences.taste_preferences.includes(taste)
-                          ? "bg-orange-500 text-white"
-                          : "bg-gray-700"
-                      }`}
-                    >
-                      {taste}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Meal Type */}
-              <div>
-                <label className="block font-medium mb-2">Meal Type</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {mealTypes.map(meal => (
-                    <button
-                      key={meal}
-                      type="button"
-                      onClick={() => setPreferences({...preferences, meal_type: meal})}
-                      className={`p-3 rounded-lg ${
-                        preferences.meal_type === meal
-                          ? "bg-orange-500 text-white"
-                          : "bg-gray-100"
-                      }`}
-                    >
-                      {meal}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Time */}
-              <div>
-                <label className="block font-medium mb-2">Time Available</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {times.map(time => (
-                    <button
-                      key={time}
-                      type="button"
-                      onClick={() => setPreferences({...preferences, time_available: time})}
-                      className={`p-3 rounded-lg ${
-                        preferences.time_available === time
-                          ? "bg-orange-500 text-white"
-                          : "bg-gray-100"
-                      }`}
-                    >
-                      {time}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Ingredients */}
-              <div>
-                <label className="block font-medium mb-2">Available Ingredients (comma separated)</label>
-                <input
-                  type="text"
-                  className="w-full p-3 border rounded-lg"
-                  placeholder="e.g., tomatoes, onions, chicken"
-                  onBlur={(e) => {
-                    const ingredients = e.target.value.split(',').map(i => i.trim()).filter(i => i);
-                    setPreferences({...preferences, available_ingredients: ingredients});
-                  }}
-                />
-              </div>
-
-              {/* Submit */}
-              <button
-                onClick={handleSubmitPreferences}
-                disabled={loading || !preferences.region || preferences.taste_preferences.length === 0}
-                className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white py-4 rounded-lg font-bold text-lg hover:from-orange-600 hover:to-red-600 disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {loading ? <span className="loading loading-spinner"></span> : <><FaPaperPlane /> Find Recipes</>}
-              </button>
             </div>
-          </div>
+
+            {/* TOP RECIPES SECTION */}
+            <div className="mt-12">
+              <TopRecipes />
+            </div>
+          </>
         )}
 
         {/* CHAT INTERFACE */}
