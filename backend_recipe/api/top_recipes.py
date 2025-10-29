@@ -1,11 +1,13 @@
 """
-Top Recipes API Routes
-======================
-API endpoints for fetching top recipes from top_recipes_final.db
+Top Recipes API Routes (Supabase)
+==================================
+API endpoints for managing top recipes in Supabase PostgreSQL
+Includes full CRUD operations
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Body
+from pydantic import BaseModel
 import math
 
 from models.schemas import (
@@ -19,12 +21,72 @@ from models.schemas import (
 from core.top_recipes_service import (
     get_top_recipes,
     get_recipe_by_id,
-    get_available_filters,
+    insert_recipe,
+    update_recipe,
+    delete_recipe,
+    get_filter_options,
     TopRecipe,
     TopRecipeSummary
 )
 
 router = APIRouter(prefix="/api/top-recipes", tags=["top-recipes"])
+
+
+# ============================================================================
+# Request/Response Models for CRUD
+# ============================================================================
+
+class CreateRecipeRequest(BaseModel):
+    """Request model for creating a new recipe"""
+    name: str
+    description: Optional[str] = None
+    region: Optional[str] = None
+    tastes: List[dict] = []  # [{"name": "Spicy", "intensity": 4}]
+    meal_types: List[str] = []
+    dietary_tags: List[str] = []
+    difficulty: Optional[str] = None
+    prep_time_minutes: Optional[int] = None
+    cook_time_minutes: Optional[int] = None
+    total_time_minutes: Optional[int] = None
+    servings: Optional[int] = None
+    calories: Optional[int] = None
+    ingredients: List[dict] = []  # [{"quantity": "2", "unit": "cups", "name": "Rice", "preparation": ""}]
+    steps: List[str] = []
+    image_url: Optional[str] = None
+    step_image_urls: List[str] = []
+    rating: float = 0.0
+    popularity_score: float = 0.0
+    source: str = "api"
+
+
+class UpdateRecipeRequest(BaseModel):
+    """Request model for updating a recipe (all fields optional)"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    region: Optional[str] = None
+    tastes: Optional[List[dict]] = None
+    meal_types: Optional[List[str]] = None
+    dietary_tags: Optional[List[str]] = None
+    difficulty: Optional[str] = None
+    prep_time_minutes: Optional[int] = None
+    cook_time_minutes: Optional[int] = None
+    total_time_minutes: Optional[int] = None
+    servings: Optional[int] = None
+    calories: Optional[int] = None
+    ingredients: Optional[List[dict]] = None
+    steps: Optional[List[str]] = None
+    image_url: Optional[str] = None
+    step_image_urls: Optional[List[str]] = None
+    rating: Optional[float] = None
+    popularity_score: Optional[float] = None
+
+
+class UpdateFieldsRequest(BaseModel):
+    """Request model for updating specific fields"""
+    steps: Optional[List[str]] = None
+    step_image_urls: Optional[List[str]] = None
+    ingredients: Optional[List[dict]] = None
+    image_url: Optional[str] = None
 
 
 # ============================================================================
@@ -38,7 +100,7 @@ def convert_recipe_to_model(recipe: TopRecipe) -> TopRecipeModel:
         name=recipe.name,
         description=recipe.description,
         region=recipe.region,
-        tastes=[TasteDetail(name=name, intensity=intensity) for name, intensity in recipe.tastes],
+        tastes=[TasteDetail(**taste) for taste in recipe.tastes],
         meal_types=recipe.meal_types,
         dietary_tags=recipe.dietary_tags,
         difficulty=recipe.difficulty,
@@ -53,14 +115,12 @@ def convert_recipe_to_model(recipe: TopRecipe) -> TopRecipeModel:
         step_image_urls=recipe.step_image_urls,
         rating=recipe.rating,
         popularity_score=recipe.popularity_score,
-        source=recipe.source,
-        created_at=recipe.created_at,
-        updated_at=recipe.updated_at
+        source=recipe.source
     )
 
 
 def convert_summary_to_model(summary: TopRecipeSummary) -> TopRecipeSummaryModel:
-    """Convert TopRecipeSummary dataclass to TopRecipeSummaryModel"""
+    """Convert TopRecipeSummary dataclass to TopRecipeSummaryModel Pydantic model"""
     return TopRecipeSummaryModel(
         id=summary.id,
         name=summary.name,
@@ -79,63 +139,26 @@ def convert_summary_to_model(summary: TopRecipeSummary) -> TopRecipeSummaryModel
 
 
 # ============================================================================
-# API Endpoints
+# READ Endpoints
 # ============================================================================
 
 @router.get("/", response_model=TopRecipesResponse)
-async def get_recipes(
-    # Filtering parameters
-    region: Optional[str] = Query(None, description="Filter by cuisine region (e.g., 'Indian', 'Chinese')"),
-    difficulty: Optional[str] = Query(None, description="Filter by difficulty: 'Easy', 'Medium', 'Hard'"),
-    meal_types: Optional[str] = Query(None, description="Comma-separated meal types (e.g., 'Lunch,Dinner')"),
-    dietary_tags: Optional[str] = Query(None, description="Comma-separated dietary tags (e.g., 'Vegetarian,Gluten-Free')"),
-    max_time: Optional[int] = Query(None, description="Maximum total time in minutes"),
-    min_rating: Optional[float] = Query(None, description="Minimum rating (0-5)", ge=0, le=5),
-    search: Optional[str] = Query(None, description="Search in name, description, ingredients, or steps"),
-    
-    # Sorting parameters
-    sort_by: str = Query(
-        'popularity_score',
-        description="Sort by: id, name, region, difficulty, prep_time_minutes, cook_time_minutes, total_time_minutes, servings, calories, rating, popularity_score, created_at, updated_at"
-    ),
-    sort_order: str = Query('DESC', description="Sort order: 'ASC' or 'DESC'", regex="^(ASC|DESC|asc|desc)$"),
-    
-    # Pagination parameters
-    page: int = Query(1, description="Page number (1-indexed)", ge=1),
-    page_size: int = Query(30, description="Number of results per page", ge=1, le=100),
-    
-    # Detail level
-    detailed: bool = Query(True, description="Return full recipe details (True) or summary (False)")
+async def list_top_recipes(
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(30, ge=1, le=100, description="Recipes per page"),
+    region: Optional[str] = Query(None, description="Filter by region"),
+    difficulty: Optional[str] = Query(None, description="Filter by difficulty"),
+    meal_types: Optional[str] = Query(None, description="Comma-separated meal types"),
+    dietary_tags: Optional[str] = Query(None, description="Comma-separated dietary tags"),
+    max_time: Optional[int] = Query(None, ge=1, description="Maximum time in minutes"),
+    min_rating: Optional[float] = Query(None, ge=0, le=5, description="Minimum rating"),
+    search: Optional[str] = Query(None, description="Search recipe name"),
+    sort_by: str = Query("popularity_score", description="Sort column"),
+    sort_order: str = Query("desc", description="Sort order (asc/desc)"),
+    detailed: bool = Query(False, description="Return full recipe details")
 ):
     """
-    Get top recipes with flexible filtering, sorting, and pagination.
-    
-    **Filters:**
-    - `region`: Cuisine type (Indian, Chinese, Italian, etc.)
-    - `difficulty`: Easy, Medium, Hard
-    - `meal_types`: Breakfast, Lunch, Dinner, Snack, Dessert (comma-separated)
-    - `dietary_tags`: Vegetarian, Vegan, Gluten-Free, etc. (comma-separated)
-    - `max_time`: Maximum cooking time in minutes
-    - `min_rating`: Minimum rating (0-5)
-    - `search`: Search text (searches name, description, ingredients, steps)
-    
-    **Sorting:**
-    - `sort_by`: Column to sort by (default: popularity_score)
-    - `sort_order`: ASC or DESC (default: DESC)
-    
-    **Pagination:**
-    - `page`: Page number starting from 1
-    - `page_size`: Results per page (max 100)
-    
-    **Detail Level:**
-    - `detailed=true`: Full recipe with ingredients, steps, images (default)
-    - `detailed=false`: Summary view with basic info only
-    
-    **Examples:**
-    - Get top 10 Indian recipes: `?region=Indian&page_size=10`
-    - Vegetarian breakfast under 30 min: `?meal_types=Breakfast&dietary_tags=Vegetarian&max_time=30`
-    - Search for chicken recipes: `?search=chicken`
-    - High-rated easy recipes: `?difficulty=Easy&min_rating=4.5&sort_by=rating`
+    Get a paginated list of top recipes with filtering and sorting.
     """
     try:
         # Parse comma-separated values
@@ -167,7 +190,7 @@ async def get_recipes(
         else:
             recipe_models = [convert_summary_to_model(r) for r in recipes]
         
-        # Calculate total pages
+        # Calculate pagination metadata
         total_pages = math.ceil(total_count / page_size) if total_count > 0 else 0
         
         return TopRecipesResponse(
@@ -175,8 +198,7 @@ async def get_recipes(
             total_count=total_count,
             page=page,
             page_size=page_size,
-            total_pages=total_pages,
-            success=True
+            total_pages=total_pages
         )
         
     except Exception as e:
@@ -184,21 +206,15 @@ async def get_recipes(
 
 
 @router.get("/{recipe_id}", response_model=TopRecipeModel)
-async def get_recipe_detail(recipe_id: int):
+async def get_single_recipe(recipe_id: int):
     """
-    Get detailed information for a specific recipe by ID.
-    
-    **Parameters:**
-    - `recipe_id`: Unique recipe identifier
-    
-    **Returns:**
-    Complete recipe details including ingredients, steps, and images.
+    Get a single recipe by ID with full details.
     """
     try:
         recipe = get_recipe_by_id(recipe_id)
         
         if not recipe:
-            raise HTTPException(status_code=404, detail=f"Recipe with ID {recipe_id} not found")
+            raise HTTPException(status_code=404, detail=f"Recipe {recipe_id} not found")
         
         return convert_recipe_to_model(recipe)
         
@@ -209,24 +225,18 @@ async def get_recipe_detail(recipe_id: int):
 
 
 @router.get("/filters/available", response_model=AvailableFiltersResponse)
-async def get_filters():
+async def get_available_filters():
     """
-    Get all available filter options from the database.
-    
-    **Returns:**
-    Lists of available regions, difficulties, meal types, and dietary tags.
-    
-    Useful for populating filter dropdowns in the frontend.
+    Get all available filter options (regions, difficulties, meal types, dietary tags).
     """
     try:
-        filters = get_available_filters()
+        filters = get_filter_options()
         
         return AvailableFiltersResponse(
             regions=filters['regions'],
             difficulties=filters['difficulties'],
             meal_types=filters['meal_types'],
-            dietary_tags=filters['dietary_tags'],
-            success=True
+            dietary_tags=filters['dietary_tags']
         )
         
     except Exception as e:
@@ -234,68 +244,146 @@ async def get_filters():
 
 
 # ============================================================================
-# Additional Utility Endpoints
+# CREATE Endpoint
 # ============================================================================
 
-@router.get("/stats/summary")
-async def get_stats_summary():
+@router.post("/", response_model=dict)
+async def create_recipe(recipe_data: CreateRecipeRequest):
     """
-    Get database statistics summary.
+    Create a new recipe in the database.
     
-    **Returns:**
-    - Total recipes count
-    - Recipes per region
-    - Average rating
-    - Average cooking time
+    Returns the ID of the newly created recipe.
     """
     try:
-        from core.top_recipes_service import get_connection
-        
-        conn = get_connection()
-        cursor = conn.cursor()
-        
-        # Total count
-        cursor.execute("SELECT COUNT(*) FROM top_recipes")
-        total_count = cursor.fetchone()[0]
-        
-        # Count by region
-        cursor.execute("""
-            SELECT region, COUNT(*) as count
-            FROM top_recipes
-            WHERE region IS NOT NULL
-            GROUP BY region
-            ORDER BY count DESC
-        """)
-        recipes_by_region = {row[0]: row[1] for row in cursor.fetchall()}
-        
-        # Average rating
-        cursor.execute("SELECT AVG(rating) FROM top_recipes WHERE rating > 0")
-        avg_rating = cursor.fetchone()[0] or 0
-        
-        # Average time
-        cursor.execute("SELECT AVG(total_time_minutes) FROM top_recipes WHERE total_time_minutes IS NOT NULL")
-        avg_time = cursor.fetchone()[0] or 0
-        
-        # Top rated
-        cursor.execute("""
-            SELECT name, rating
-            FROM top_recipes
-            WHERE rating > 0
-            ORDER BY rating DESC, popularity_score DESC
-            LIMIT 5
-        """)
-        top_rated = [{'name': row[0], 'rating': row[1]} for row in cursor.fetchall()]
-        
-        conn.close()
+        recipe_id = insert_recipe(
+            name=recipe_data.name,
+            description=recipe_data.description,
+            region=recipe_data.region,
+            tastes=recipe_data.tastes,
+            meal_types=recipe_data.meal_types,
+            dietary_tags=recipe_data.dietary_tags,
+            difficulty=recipe_data.difficulty,
+            prep_time_minutes=recipe_data.prep_time_minutes,
+            cook_time_minutes=recipe_data.cook_time_minutes,
+            total_time_minutes=recipe_data.total_time_minutes,
+            servings=recipe_data.servings,
+            calories=recipe_data.calories,
+            ingredients=recipe_data.ingredients,
+            steps=recipe_data.steps,
+            image_url=recipe_data.image_url,
+            step_image_urls=recipe_data.step_image_urls,
+            rating=recipe_data.rating,
+            popularity_score=recipe_data.popularity_score,
+            source=recipe_data.source
+        )
         
         return {
-            'success': True,
-            'total_recipes': total_count,
-            'recipes_by_region': recipes_by_region,
-            'average_rating': round(avg_rating, 2),
-            'average_time_minutes': round(avg_time, 1),
-            'top_rated_recipes': top_rated
+            "message": "Recipe created successfully",
+            "recipe_id": recipe_id
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating recipe: {str(e)}")
+
+
+# ============================================================================
+# UPDATE Endpoints
+# ============================================================================
+
+@router.put("/{recipe_id}", response_model=dict)
+async def update_full_recipe(recipe_id: int, recipe_data: UpdateRecipeRequest):
+    """
+    Update specific fields of an existing recipe.
+    Only provided fields will be updated.
+    """
+    try:
+        success = update_recipe(
+            recipe_id=recipe_id,
+            name=recipe_data.name,
+            description=recipe_data.description,
+            region=recipe_data.region,
+            tastes=recipe_data.tastes,
+            meal_types=recipe_data.meal_types,
+            dietary_tags=recipe_data.dietary_tags,
+            difficulty=recipe_data.difficulty,
+            prep_time_minutes=recipe_data.prep_time_minutes,
+            cook_time_minutes=recipe_data.cook_time_minutes,
+            total_time_minutes=recipe_data.total_time_minutes,
+            servings=recipe_data.servings,
+            calories=recipe_data.calories,
+            ingredients=recipe_data.ingredients,
+            steps=recipe_data.steps,
+            image_url=recipe_data.image_url,
+            step_image_urls=recipe_data.step_image_urls,
+            rating=recipe_data.rating,
+            popularity_score=recipe_data.popularity_score
+        )
+        
+        if not success:
+            raise HTTPException(status_code=404, detail=f"Recipe {recipe_id} not found")
+        
+        return {
+            "message": "Recipe updated successfully",
+            "recipe_id": recipe_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating recipe: {str(e)}")
+
+
+@router.patch("/{recipe_id}/fields", response_model=dict)
+async def update_recipe_fields(recipe_id: int, fields: UpdateFieldsRequest):
+    """
+    Update specific fields like steps, step_image_urls, ingredients, or image_url.
+    Useful for updating generated content after recipe creation.
+    """
+    try:
+        success = update_recipe(
+            recipe_id=recipe_id,
+            steps=fields.steps,
+            step_image_urls=fields.step_image_urls,
+            ingredients=fields.ingredients,
+            image_url=fields.image_url
+        )
+        
+        if not success:
+            raise HTTPException(status_code=404, detail=f"Recipe {recipe_id} not found")
+        
+        return {
+            "message": "Recipe fields updated successfully",
+            "recipe_id": recipe_id,
+            "updated_fields": [k for k, v in fields.dict().items() if v is not None]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating recipe fields: {str(e)}")
+
+
+# ============================================================================
+# DELETE Endpoint
+# ============================================================================
+
+@router.delete("/{recipe_id}", response_model=dict)
+async def delete_single_recipe(recipe_id: int):
+    """
+    Delete a recipe by ID.
+    """
+    try:
+        success = delete_recipe(recipe_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail=f"Recipe {recipe_id} not found")
+        
+        return {
+            "message": "Recipe deleted successfully",
+            "recipe_id": recipe_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting recipe: {str(e)}")

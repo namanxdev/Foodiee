@@ -1,32 +1,28 @@
 """
-Top Recipes Database Service
+Top Recipes Supabase Service
 ============================
-Database operations for the denormalized top_recipes_final.db
+Database operations for top_recipes table in Supabase PostgreSQL
 """
 
-import sqlite3
 import os
+import json
+import psycopg
+from psycopg.rows import dict_row
 from typing import List, Dict, Optional, Tuple
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
+from dotenv import load_dotenv
 
-
-# Constants
-STEP_DELIMITER = '<STEP_DELIMITER>'
-DB_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)), 
-    'data/top_recipes', 
-    'top_recipes_final.db'
-)
+load_dotenv()
 
 
 @dataclass
 class TopRecipe:
-    """Recipe data structure matching top_recipes table"""
+    """Complete recipe data structure"""
     id: int
     name: str
     description: Optional[str]
     region: Optional[str]
-    tastes: List[Tuple[str, int]]  # [(taste_name, intensity)]
+    tastes: List[Dict[str, int]]
     meal_types: List[str]
     dietary_tags: List[str]
     difficulty: Optional[str]
@@ -35,7 +31,7 @@ class TopRecipe:
     total_time_minutes: Optional[int]
     servings: Optional[int]
     calories: Optional[int]
-    ingredients: List[Dict[str, str]]  # [{'quantity', 'unit', 'name', 'preparation_note'}]
+    ingredients: List[Dict[str, str]]
     steps: List[str]
     image_url: Optional[str]
     step_image_urls: List[str]
@@ -64,155 +60,58 @@ class TopRecipeSummary:
     dietary_tags: List[str]
 
 
-# ============================================================================
-# Deserialization Functions
-# ============================================================================
-
-def deserialize_tastes(tastes_str: Optional[str]) -> List[Tuple[str, int]]:
-    """Parse tastes string: 'Spicy:4|Savory:5' OR JSON → [('Spicy', 4), ('Savory', 5)]"""
-    if not tastes_str:
-        return []
-    
-    # Handle JSON format (from migrated data)
-    if tastes_str.strip().startswith('['):
-        import json
-        try:
-            taste_list = json.loads(tastes_str)
-            return [(t['name'], t['intensity']) for t in taste_list]
-        except:
-            return []
-    
-    # Handle pipe-delimited format (from original test data)
-    tastes = []
-    for entry in tastes_str.split('|'):
-        if ':' in entry:
-            parts = entry.split(':', 1)  # Split on first colon only
-            if len(parts) == 2:
-                name, intensity = parts
-                try:
-                    tastes.append((name.strip(), int(intensity.strip())))
-                except ValueError:
-                    continue
-    return tastes
+def get_supabase_connection():
+    """Get Supabase PostgreSQL connection"""
+    supabase_url = os.environ.get("SUPABASE_OG_URL")
+    if not supabase_url:
+        raise ValueError("SUPABASE_OG_URL not found in environment variables")
+    return psycopg.connect(supabase_url, row_factory=dict_row)
 
 
-def deserialize_list(list_str: Optional[str]) -> List[str]:
-    """Parse pipe-delimited string: 'Lunch|Dinner' → ['Lunch', 'Dinner']"""
-    if not list_str:
-        return []
-    return [item.strip() for item in list_str.split('|') if item.strip()]
-
-
-def deserialize_ingredients(ingredients_str: Optional[str]) -> List[Dict[str, str]]:
-    """
-    Parse ingredients multi-line format:
-    '750|grams|Chicken|cut into pieces\\n2|tbsp|Garam Masala|'
-    OR JSON format from migrated data
-    → [{'quantity': '750', 'unit': 'grams', 'name': 'Chicken', 'preparation_note': 'cut into pieces'}, ...]
-    """
-    if not ingredients_str:
-        return []
-    
-    # Handle JSON format (from migrated data)
-    if ingredients_str.strip().startswith('['):
-        import json
-        try:
-            ingredients_list = json.loads(ingredients_str)
-            # Convert to expected format
-            return [{
-                'quantity': ing.get('quantity', ''),
-                'unit': ing.get('unit', ''),
-                'name': ing.get('name', ''),
-                'preparation_note': ing.get('preparation', ing.get('preparation_note', '')) or ''
-            } for ing in ingredients_list]
-        except:
-            return []
-    
-    # Handle pipe-delimited format (from original test data)
-    ingredients = []
-    for line in ingredients_str.strip().split('\n'):
-        if not line:
-            continue
-        parts = line.split('|')
-        if len(parts) >= 3:
-            ingredients.append({
-                'quantity': parts[0].strip(),
-                'unit': parts[1].strip(),
-                'name': parts[2].strip(),
-                'preparation_note': parts[3].strip() if len(parts) > 3 else ''
-            })
-    return ingredients
-
-
-def deserialize_steps(steps_str: Optional[str]) -> List[str]:
-    """Parse steps: 'step1<STEP_DELIMITER>step2' → ['step1', 'step2']"""
-    if not steps_str:
-        return []
-    return [step.strip() for step in steps_str.split(STEP_DELIMITER) if step.strip()]
-
-
-def deserialize_step_images(step_image_urls_str: Optional[str]) -> List[str]:
-    """Parse step images: 'url1<STEP_DELIMITER>url2' → ['url1', 'url2']"""
-    if not step_image_urls_str:
-        return []
-    return step_image_urls_str.split(STEP_DELIMITER)
-
-
-# ============================================================================
-# Database Operations
-# ============================================================================
-
-def get_connection(db_path: str = DB_PATH) -> sqlite3.Connection:
-    """Get database connection"""
-    if not os.path.exists(db_path):
-        raise FileNotFoundError(f"Database not found at: {db_path}")
-    return sqlite3.connect(db_path)
-
-
-def row_to_recipe(row: tuple) -> TopRecipe:
-    """Convert database row to TopRecipe object"""
+def row_to_recipe(row: dict) -> TopRecipe:
+    """Convert database row dict to TopRecipe object"""
     return TopRecipe(
-        id=row[0],
-        name=row[1],
-        description=row[2],
-        region=row[3],
-        tastes=deserialize_tastes(row[4]),
-        meal_types=deserialize_list(row[5]),
-        dietary_tags=deserialize_list(row[6]),
-        difficulty=row[7],
-        prep_time_minutes=row[8],
-        cook_time_minutes=row[9],
-        total_time_minutes=row[10],
-        servings=row[11],
-        calories=row[12],
-        ingredients=deserialize_ingredients(row[13]),
-        steps=deserialize_steps(row[14]),
-        image_url=row[15],
-        step_image_urls=deserialize_step_images(row[16]),
-        popularity_score=row[17],
-        rating=row[18],
-        source=row[19],
-        created_at=row[20] if len(row) > 20 else None,
-        updated_at=row[21] if len(row) > 21 else None
+        id=row['id'],
+        name=row['name'],
+        description=row['description'],
+        region=row['region'],
+        tastes=row['tastes'] if row['tastes'] else [],
+        meal_types=row['meal_types'] if row['meal_types'] else [],
+        dietary_tags=row['dietary_tags'] if row['dietary_tags'] else [],
+        difficulty=row['difficulty'],
+        prep_time_minutes=row['prep_time_minutes'],
+        cook_time_minutes=row['cook_time_minutes'],
+        total_time_minutes=row['total_time_minutes'],
+        servings=row['servings'],
+        calories=row['calories'],
+        ingredients=row['ingredients'] if row['ingredients'] else [],
+        steps=row['steps'] if row['steps'] else [],
+        image_url=row['image_url'],
+        step_image_urls=row['step_image_urls'] if row['step_image_urls'] else [],
+        popularity_score=float(row['popularity_score']) if row['popularity_score'] else 0.0,
+        rating=float(row['rating']) if row['rating'] else 0.0,
+        source=row['source'],
+        created_at=str(row['created_at']) if row.get('created_at') else None,
+        updated_at=str(row['updated_at']) if row.get('updated_at') else None
     )
 
 
-def row_to_recipe_summary(row: tuple) -> TopRecipeSummary:
-    """Convert database row to TopRecipeSummary object"""
+def row_to_recipe_summary(row: dict) -> TopRecipeSummary:
+    """Convert database row dict to TopRecipeSummary object"""
     return TopRecipeSummary(
-        id=row[0],
-        name=row[1],
-        description=row[2],
-        region=row[3],
-        difficulty=row[7],
-        total_time_minutes=row[10],
-        servings=row[11],
-        calories=row[12],
-        image_url=row[15],
-        rating=row[18],
-        popularity_score=row[17],
-        meal_types=deserialize_list(row[5]),
-        dietary_tags=deserialize_list(row[6])
+        id=row['id'],
+        name=row['name'],
+        description=row['description'],
+        region=row['region'],
+        difficulty=row['difficulty'],
+        total_time_minutes=row['total_time_minutes'],
+        servings=row['servings'],
+        calories=row['calories'],
+        image_url=row['image_url'],
+        rating=float(row['rating']) if row['rating'] else 0.0,
+        popularity_score=float(row['popularity_score']) if row['popularity_score'] else 0.0,
+        meal_types=row['meal_types'] if row['meal_types'] else [],
+        dietary_tags=row['dietary_tags'] if row['dietary_tags'] else []
     )
 
 
@@ -228,115 +127,84 @@ def get_top_recipes(
     sort_order: str = 'DESC',
     limit: int = 30,
     offset: int = 0,
-    detailed: bool = True,
-    db_path: str = DB_PATH
+    detailed: bool = True
 ) -> Tuple[List[TopRecipe] | List[TopRecipeSummary], int]:
-    """
-    Get top recipes with flexible filtering and pagination.
-    
-    Args:
-        region: Filter by cuisine region (e.g., 'Indian')
-        difficulty: Filter by difficulty level ('Easy', 'Medium', 'Hard')
-        meal_types: Filter by meal types (e.g., ['Lunch', 'Dinner'])
-        dietary_tags: Filter by dietary tags (e.g., ['Vegetarian'])
-        max_time: Maximum total_time_minutes
-        min_rating: Minimum rating (0-5)
-        search: Search in name, description, ingredients, or steps
-        sort_by: Column to sort by (default: 'popularity_score')
-        sort_order: 'ASC' or 'DESC' (default: 'DESC')
-        limit: Number of results (default: 30)
-        offset: Pagination offset (default: 0)
-        detailed: Return full TopRecipe or TopRecipeSummary (default: True)
-        db_path: Database path
-    
-    Returns:
-        Tuple of (recipes_list, total_count)
-    """
-    conn = get_connection(db_path)
+    """Get top recipes with flexible filtering and pagination"""
+    conn = get_supabase_connection()
     cursor = conn.cursor()
     
-    # Build WHERE clauses
-    where_clauses = []
+    conditions = []
     params = []
     
-    # Region filter
     if region:
-        where_clauses.append("region = ?")
+        conditions.append("region = %s")
         params.append(region)
     
-    # Difficulty filter
     if difficulty:
-        where_clauses.append("difficulty = ?")
+        conditions.append("difficulty = %s")
         params.append(difficulty)
     
-    # Meal types filter (check if any meal type matches)
     if meal_types:
-        meal_type_conditions = []
-        for meal_type in meal_types:
-            meal_type_conditions.append("meal_types LIKE ?")
-            params.append(f"%{meal_type}%")
-        where_clauses.append(f"({' OR '.join(meal_type_conditions)})")
+        conditions.append("meal_types @> %s")
+        params.append(meal_types)
     
-    # Dietary tags filter (check if all tags match)
     if dietary_tags:
-        for tag in dietary_tags:
-            where_clauses.append("dietary_tags LIKE ?")
-            params.append(f"%{tag}%")
+        conditions.append("dietary_tags @> %s")
+        params.append(dietary_tags)
     
-    # Max time filter
-    if max_time is not None:
-        where_clauses.append("total_time_minutes <= ?")
+    if max_time:
+        conditions.append("total_time_minutes <= %s")
         params.append(max_time)
     
-    # Min rating filter
-    if min_rating is not None:
-        where_clauses.append("rating >= ?")
+    if min_rating:
+        conditions.append("rating >= %s")
         params.append(min_rating)
     
-    # Search filter (name, description, ingredients, or steps)
     if search:
-        search_pattern = f"%{search}%"
-        where_clauses.append(
-            "(name LIKE ? OR description LIKE ? OR ingredients LIKE ? OR steps LIKE ?)"
-        )
-        params.extend([search_pattern] * 4)
+        conditions.append("name ILIKE %s")
+        params.append(f"%{search}%")
     
-    # Build WHERE clause
-    where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+    where_clause = " AND ".join(conditions) if conditions else "TRUE"
     
-    # Validate sort_by to prevent SQL injection
-    valid_sort_columns = [
-        'id', 'name', 'region', 'difficulty', 'prep_time_minutes',
-        'cook_time_minutes', 'total_time_minutes', 'servings', 'calories',
-        'rating', 'popularity_score', 'created_at', 'updated_at'
+    count_query = f"SELECT COUNT(*) FROM top_recipes WHERE {where_clause}"
+    cursor.execute(count_query, params)
+    result = cursor.fetchone()
+    total_count = result['count'] if result else 0
+    
+    allowed_sort_columns = [
+        'popularity_score', 'rating', 'total_time_minutes', 
+        'calories', 'servings', 'created_at', 'name'
     ]
-    if sort_by not in valid_sort_columns:
+    if sort_by not in allowed_sort_columns:
         sort_by = 'popularity_score'
     
-    # Validate sort_order
     sort_order = sort_order.upper()
     if sort_order not in ['ASC', 'DESC']:
         sort_order = 'DESC'
     
-    # Get total count
-    count_query = f"SELECT COUNT(*) FROM top_recipes {where_sql}"
-    cursor.execute(count_query, params)
-    total_count = cursor.fetchone()[0]
+    if detailed:
+        select_query = f"""
+            SELECT * FROM top_recipes
+            WHERE {where_clause}
+            ORDER BY {sort_by} {sort_order}
+            LIMIT %s OFFSET %s
+        """
+    else:
+        select_query = f"""
+            SELECT id, name, description, region, difficulty, total_time_minutes,
+                   servings, calories, image_url, rating, popularity_score,
+                   meal_types, dietary_tags
+            FROM top_recipes
+            WHERE {where_clause}
+            ORDER BY {sort_by} {sort_order}
+            LIMIT %s OFFSET %s
+        """
     
-    # Get recipes
-    query = f"""
-        SELECT * FROM top_recipes
-        {where_sql}
-        ORDER BY {sort_by} {sort_order}
-        LIMIT ? OFFSET ?
-    """
     params.extend([limit, offset])
-    
-    cursor.execute(query, params)
+    cursor.execute(select_query, params)
     rows = cursor.fetchall()
     conn.close()
     
-    # Convert to objects
     if detailed:
         recipes = [row_to_recipe(row) for row in rows]
     else:
@@ -345,21 +213,12 @@ def get_top_recipes(
     return recipes, total_count
 
 
-def get_recipe_by_id(recipe_id: int, db_path: str = DB_PATH) -> Optional[TopRecipe]:
-    """
-    Get a single recipe by ID.
-    
-    Args:
-        recipe_id: Recipe ID
-        db_path: Database path
-    
-    Returns:
-        TopRecipe object or None if not found
-    """
-    conn = get_connection(db_path)
+def get_recipe_by_id(recipe_id: int) -> Optional[TopRecipe]:
+    """Get a single recipe by ID"""
+    conn = get_supabase_connection()
     cursor = conn.cursor()
     
-    cursor.execute("SELECT * FROM top_recipes WHERE id = ?", (recipe_id,))
+    cursor.execute("SELECT * FROM top_recipes WHERE id = %s", (recipe_id,))
     row = cursor.fetchone()
     conn.close()
     
@@ -369,37 +228,219 @@ def get_recipe_by_id(recipe_id: int, db_path: str = DB_PATH) -> Optional[TopReci
     return row_to_recipe(row)
 
 
-def get_available_filters(db_path: str = DB_PATH) -> Dict[str, List[str]]:
-    """
-    Get available filter options from the database.
-    
-    Returns:
-        Dictionary with available regions, difficulties, meal_types, dietary_tags
-    """
-    conn = get_connection(db_path)
+def insert_recipe(
+    name: str,
+    description: Optional[str] = None,
+    region: Optional[str] = None,
+    tastes: List[Dict[str, int]] = None,
+    meal_types: List[str] = None,
+    dietary_tags: List[str] = None,
+    difficulty: Optional[str] = None,
+    prep_time_minutes: Optional[int] = None,
+    cook_time_minutes: Optional[int] = None,
+    total_time_minutes: Optional[int] = None,
+    servings: Optional[int] = None,
+    calories: Optional[int] = None,
+    ingredients: List[Dict[str, str]] = None,
+    steps: List[str] = None,
+    image_url: Optional[str] = None,
+    step_image_urls: List[str] = None,
+    rating: float = 0.0,
+    popularity_score: float = 0.0,
+    source: str = 'api'
+) -> int:
+    """Insert a new recipe into the database"""
+    conn = get_supabase_connection()
     cursor = conn.cursor()
     
-    # Get unique regions
+    tastes = tastes or []
+    meal_types = meal_types or []
+    dietary_tags = dietary_tags or []
+    ingredients = ingredients or []
+    steps = steps or []
+    step_image_urls = step_image_urls or []
+    
+    while len(step_image_urls) < len(steps):
+        step_image_urls.append('')
+    step_image_urls = step_image_urls[:len(steps)]
+    
+    cursor.execute("""
+        INSERT INTO top_recipes (
+            name, description, region, tastes, meal_types, dietary_tags,
+            difficulty, prep_time_minutes, cook_time_minutes, total_time_minutes,
+            servings, calories, ingredients, steps, image_url, step_image_urls,
+            rating, popularity_score, source
+        ) VALUES (
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+        )
+        RETURNING id
+    """, (
+        name, description, region,
+        json.dumps(tastes),
+        meal_types,
+        dietary_tags,
+        difficulty, prep_time_minutes, cook_time_minutes, total_time_minutes,
+        servings, calories,
+        json.dumps(ingredients),
+        steps,
+        image_url,
+        step_image_urls,
+        rating, popularity_score, source
+    ))
+    
+    result = cursor.fetchone()
+    recipe_id = result['id'] if result else None
+    conn.commit()
+    conn.close()
+    
+    return recipe_id
+
+
+def update_recipe(
+    recipe_id: int,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    region: Optional[str] = None,
+    tastes: Optional[List[Dict[str, int]]] = None,
+    meal_types: Optional[List[str]] = None,
+    dietary_tags: Optional[List[str]] = None,
+    difficulty: Optional[str] = None,
+    prep_time_minutes: Optional[int] = None,
+    cook_time_minutes: Optional[int] = None,
+    total_time_minutes: Optional[int] = None,
+    servings: Optional[int] = None,
+    calories: Optional[int] = None,
+    ingredients: Optional[List[Dict[str, str]]] = None,
+    steps: Optional[List[str]] = None,
+    image_url: Optional[str] = None,
+    step_image_urls: Optional[List[str]] = None,
+    rating: Optional[float] = None,
+    popularity_score: Optional[float] = None
+) -> bool:
+    """Update specific fields of an existing recipe"""
+    updates = []
+    params = []
+    
+    if name is not None:
+        updates.append("name = %s")
+        params.append(name)
+    
+    if description is not None:
+        updates.append("description = %s")
+        params.append(description)
+    
+    if region is not None:
+        updates.append("region = %s")
+        params.append(region)
+    
+    if tastes is not None:
+        updates.append("tastes = %s")
+        params.append(json.dumps(tastes))
+    
+    if meal_types is not None:
+        updates.append("meal_types = %s")
+        params.append(meal_types)
+    
+    if dietary_tags is not None:
+        updates.append("dietary_tags = %s")
+        params.append(dietary_tags)
+    
+    if difficulty is not None:
+        updates.append("difficulty = %s")
+        params.append(difficulty)
+    
+    if prep_time_minutes is not None:
+        updates.append("prep_time_minutes = %s")
+        params.append(prep_time_minutes)
+    
+    if cook_time_minutes is not None:
+        updates.append("cook_time_minutes = %s")
+        params.append(cook_time_minutes)
+    
+    if total_time_minutes is not None:
+        updates.append("total_time_minutes = %s")
+        params.append(total_time_minutes)
+    
+    if servings is not None:
+        updates.append("servings = %s")
+        params.append(servings)
+    
+    if calories is not None:
+        updates.append("calories = %s")
+        params.append(calories)
+    
+    if ingredients is not None:
+        updates.append("ingredients = %s")
+        params.append(json.dumps(ingredients))
+    
+    if steps is not None:
+        updates.append("steps = %s")
+        params.append(steps)
+    
+    if image_url is not None:
+        updates.append("image_url = %s")
+        params.append(image_url)
+    
+    if step_image_urls is not None:
+        updates.append("step_image_urls = %s")
+        params.append(step_image_urls)
+    
+    if rating is not None:
+        updates.append("rating = %s")
+        params.append(rating)
+    
+    if popularity_score is not None:
+        updates.append("popularity_score = %s")
+        params.append(popularity_score)
+    
+    if not updates:
+        return False
+    
+    params.append(recipe_id)
+    
+    conn = get_supabase_connection()
+    cursor = conn.cursor()
+    
+    query = f"UPDATE top_recipes SET {', '.join(updates)} WHERE id = %s"
+    cursor.execute(query, params)
+    
+    rows_affected = cursor.rowcount
+    conn.commit()
+    conn.close()
+    
+    return rows_affected > 0
+
+
+def delete_recipe(recipe_id: int) -> bool:
+    """Delete a recipe by ID"""
+    conn = get_supabase_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("DELETE FROM top_recipes WHERE id = %s", (recipe_id,))
+    
+    rows_affected = cursor.rowcount
+    conn.commit()
+    conn.close()
+    
+    return rows_affected > 0
+
+
+def get_filter_options() -> Dict[str, List[str]]:
+    """Get all available filter options"""
+    conn = get_supabase_connection()
+    cursor = conn.cursor()
+    
     cursor.execute("SELECT DISTINCT region FROM top_recipes WHERE region IS NOT NULL ORDER BY region")
-    regions = [row[0] for row in cursor.fetchall()]
+    regions = [row['region'] for row in cursor.fetchall()]
     
-    # Get unique difficulties
     cursor.execute("SELECT DISTINCT difficulty FROM top_recipes WHERE difficulty IS NOT NULL ORDER BY difficulty")
-    difficulties = [row[0] for row in cursor.fetchall()]
+    difficulties = [row['difficulty'] for row in cursor.fetchall()]
     
-    # Get all meal_types (need to parse pipe-delimited)
-    cursor.execute("SELECT DISTINCT meal_types FROM top_recipes WHERE meal_types IS NOT NULL AND meal_types != ''")
-    meal_types_set = set()
-    for row in cursor.fetchall():
-        meal_types_set.update(deserialize_list(row[0]))
-    meal_types = sorted(list(meal_types_set))
+    cursor.execute("SELECT DISTINCT unnest(meal_types) as meal_type FROM top_recipes ORDER BY meal_type")
+    meal_types = [row['meal_type'] for row in cursor.fetchall() if row['meal_type']]
     
-    # Get all dietary_tags
-    cursor.execute("SELECT DISTINCT dietary_tags FROM top_recipes WHERE dietary_tags IS NOT NULL AND dietary_tags != ''")
-    dietary_tags_set = set()
-    for row in cursor.fetchall():
-        dietary_tags_set.update(deserialize_list(row[0]))
-    dietary_tags = sorted(list(dietary_tags_set))
+    cursor.execute("SELECT DISTINCT unnest(dietary_tags) as dietary_tag FROM top_recipes ORDER BY dietary_tag")
+    dietary_tags = [row['dietary_tag'] for row in cursor.fetchall() if row['dietary_tag']]
     
     conn.close()
     

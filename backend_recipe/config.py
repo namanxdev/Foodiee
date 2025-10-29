@@ -70,7 +70,7 @@ def initialize_ai_models():
     
     print("✅ AI Models initialized successfully!")
 
-def load_recipe_vector_store(pdf_directory="../Pdfs"):
+def load_recipe_vector_store(pdf_directory="./Pdfs"):
     """Load or create Supabase PGVector store from recipe PDFs"""
     global recipe_vector_store, connection_string
     
