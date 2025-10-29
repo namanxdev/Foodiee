@@ -1,31 +1,19 @@
 """
-Optimized Recipe Recommender using Database-First approach
+Database-First Recipe Recommender
+Uses structured database queries for fast, precise recipe retrieval
 """
 
-import base64
-import gc
-import platform
-from io import BytesIO
-from typing import Optional, Tuple, List, Dict
-import os
-import torch
-from google import genai
+from typing import List, Dict
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
-
-from config import (
-    llm, 
-    vision_llm, 
-    recipe_vector_store, 
-    IMAGE_GENERATION_ENABLED, 
-    stable_diffusion_pipe,
-    embeddings
-)
+from config import embeddings
 from prompts import RecipePrompts
 from database.db_helpers import RecipeDatabase
+from core.base_recommender import BaseRecommender
 
-class OptimizedRecipeRecommender:
+
+class OptimizedRecipeRecommender(BaseRecommender):
     """
     Optimized recommender that uses database-first approach
     - 95% database queries (fast!)
@@ -33,45 +21,13 @@ class OptimizedRecipeRecommender:
     """
     
     def __init__(self, db: RecipeDatabase):
+        """Initialize database-first recommender"""
+        super().__init__()
         self.db = db
-        
-        # LLM prompts (minimal usage)
-        self.ranking_prompt = ChatPromptTemplate.from_template("""
-You are a chef helping personalize recipe recommendations.
-
-User Preferences:
-{preferences}
-
-Here are {count} recipes from our database that match the user's cuisine and meal type:
-{recipes}
-
-AVAILABLE RECIPE NAMES (copy these EXACTLY):
-{available_names}
-
-Your task: Rank these recipes from most to least suitable for this user, considering:
-1. Their taste preferences
-2. Their available ingredients
-3. Their skill level (infer from time available)
-4. Their dietary restrictions
-
-🚨 CRITICAL INSTRUCTIONS - READ CAREFULLY:
-- You MUST use the EXACT recipe names listed under "AVAILABLE RECIPE NAMES" above
-- Copy the names CHARACTER-BY-CHARACTER from that list
-- DO NOT write "Recipe 1", "Recipe 2", "Recipe 3" - these are placeholder names
-- DO NOT paraphrase or shorten the recipe names
-- If the name is "Kadai Paneer", write "Kadai Paneer" - not "Recipe 2" or "Paneer Recipe"
-
-Return ONLY the top 3 recipes in this exact format (use EXACT names from AVAILABLE RECIPE NAMES):
-
-1. [EXACT Recipe Name] - [One sentence why it's perfect]
-2. [EXACT Recipe Name] - [One sentence why it's perfect]
-3. [EXACT Recipe Name] - [One sentence why it's perfect]
-
-Remember: Copy names EXACTLY from the AVAILABLE RECIPE NAMES list above!
-""")
-        
-        self.alternative_prompt = RecipePrompts.get_alternative_prompt()
-        self.sd_image_prompt = RecipePrompts.get_image_prompt()
+    
+    # ========================================================
+    # Properties (implement from BaseRecommender)
+    # ========================================================
     
     @property
     def llm(self):
@@ -169,7 +125,9 @@ Remember: Copy names EXACTLY from the AVAILABLE RECIPE NAMES list above!
 - Available Ingredients: {', '.join(preferences_dict.get('available_ingredients', []))}
 """
         
-        chain = self.ranking_prompt | self.llm | StrOutputParser()
+        # Use ranking prompt from RecipePrompts
+        ranking_prompt = RecipePrompts.get_ranking_prompt()
+        chain = ranking_prompt | self.llm | StrOutputParser()
         ranked_response = chain.invoke({
             "preferences": preferences_str,
             "recipes": recipes_summary,
@@ -296,7 +254,7 @@ Remember: Copy names EXACTLY from the AVAILABLE RECIPE NAMES list above!
         if recipe:
             print(f"   ✅ Found recipe in database: {recipe['name']}")
             return {
-                'id': str(recipe['id']),
+                'id': str(recipe['id']), 
                 'name': recipe['name'],
                 'ingredients': recipe['ingredients'],  # Already JSONB
                 'steps': recipe['steps'],  # Already array
@@ -330,33 +288,8 @@ Remember: Copy names EXACTLY from the AVAILABLE RECIPE NAMES list above!
         
         if needs_breakdown:
             print(f"   🔧 Breaking down instructions into clear cooking steps...")
-            # Use LLM to break down into simple steps (matching original format)
-            breakdown_prompt = ChatPromptTemplate.from_template("""
-You are an expert chef providing step-by-step cooking instructions.
-
-Recipe: {recipe_name}
-
-Current Instructions:
-{instructions}
-
-Your task: Break this down into clear, numbered cooking steps.
-
-Requirements:
-1. Each step should be ONE clear action
-2. Format: "STEP 1: [action]", "STEP 2: [action]", etc.
-3. Keep steps short (1-2 sentences maximum)
-4. Make it easy to follow while cooking
-5. Include all important details (temperature, timing, technique)
-6. Order: Prep → Cook → Finish
-
-Example format:
-STEP 1: Heat oil in a large pan over medium heat
-STEP 2: Add chopped onions and sauté until golden brown (about 5 minutes)
-STEP 3: Add spices and cook for 1 minute until fragrant
-
-Now provide the steps for the recipe above:
-""")
-            
+            # Use step breakdown prompt from RecipePrompts
+            breakdown_prompt = RecipePrompts.get_step_breakdown_prompt()
             chain = breakdown_prompt | self.llm | StrOutputParser()
             result = chain.invoke({
                 "recipe_name": recipe_data['name'],
@@ -384,125 +317,12 @@ Now provide the steps for the recipe above:
         }
     
     # ========================================================
-    # Image Generation (Same as before, but with caching!)
+    # Image Generation (inherited from BaseRecommender)
     # ========================================================
-    
-    def generate_image_prompt(self, recipe_name: str, step_description: str) -> str:
-        """Generate image prompt for Stable Diffusion"""
-        chain = self.sd_image_prompt | self.llm | StrOutputParser()
-        return chain.invoke({
-            "recipe_name": recipe_name,
-            "step_description": step_description
-        }).strip()
-    
-    def gemini_image_generator(self,recipe_name:str, step_description: str) -> Tuple[Optional[str], str]:
-        """Generate an image via Gemini using session context."""
-        
-        image_prompt = self.generate_image_prompt(recipe_name, step_description)
- 
-        api_key = os.environ.get("GOOGLE_API_KEY")
-        if not api_key:
-            raise ValueError("GOOGLE_API_KEY not configured")
-        
-        client = genai.Client(api_key=api_key)
-        
-        try:
-            result = client.models.generate_images(
-                model="imagen-4.0-generate-001",
-                prompt=image_prompt,
-            )
-        except Exception as exc:
-            raise ValueError(f"Gemini image generation failed: {exc}") from exc
-        
-        image_base64 = None
-        if result and getattr(result, "generated_images", None):
-            primary = result.generated_images[0]
-            image_bytes = None
-            if hasattr(primary, "image") and getattr(primary.image, "image_bytes", None):
-                image_bytes = primary.image.image_bytes
-            elif hasattr(primary, "image_bytes"):
-                image_bytes = primary.image_bytes
-            
-            if image_bytes:
-                image_base64 = base64.b64encode(image_bytes).decode("utf-8")
-        
-        return image_base64, image_prompt
-    
-
-    def generate_image(
-        self, 
-        recipe_id: str,
-        recipe_name: str, 
-        step_description: str,
-        step_number: int = 0
-    ) -> Tuple[Optional[object], str]:
-        """
-        Generate image with caching:
-        1. Check database first (instant!)
-        2. Generate only if not cached
-        3. Save to database for next time
-        """
-        # Check cache first!
-        image_type = f"step_{step_number}" if step_number > 0 else "hero"
-        cached_url = self.db.get_recipe_image(recipe_id, image_type)
-        
-        if cached_url:
-            print(f"   ✅ Using cached image for {recipe_name} {image_type}")
-            # TODO: Download from Supabase Storage and return
-            # For now, return None to indicate cached (frontend should fetch URL)
-            return None, f"[Cached image available at: {cached_url}]"
-        
-        # Generate prompt
-        image_prompt = self.generate_image_prompt(recipe_name, step_description)
-        
-        from config import get_image_generation_enabled, get_stable_diffusion_pipe
-        
-        IMAGE_GENERATION_ENABLED = get_image_generation_enabled()
-        stable_diffusion_pipe = get_stable_diffusion_pipe()
-        
-        if not IMAGE_GENERATION_ENABLED or stable_diffusion_pipe is None:
-            print("⚠️  Image generation not enabled or Stable Diffusion not initialized.")
-            return None, image_prompt
-        
-        try:
-            print(f"   🎨 Generating new image for {recipe_name} {image_type}...")
-            
-            with torch.inference_mode():
-                with torch.autocast(device_type="cpu"):
-                    image = stable_diffusion_pipe(
-                        image_prompt,
-                        num_inference_steps=30,
-                        guidance_scale=7.5,
-                        height=512,
-                        width=512
-                    ).images[0]
-            
-            # Clear memory
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-            if platform.system() == "Darwin" and torch.backends.mps.is_available():
-                torch.mps.empty_cache()
-            gc.collect()
-            
-            # TODO: Upload to Supabase Storage
-            # For now, return the image
-            # self.db.save_recipe_image(recipe_id, image_type, uploaded_url, image_prompt)
-            
-            return image, image_prompt
-            
-        except Exception as e:
-            print(f"Error generating image: {e}")
-            import traceback
-            traceback.print_exc()
-            return None, image_prompt
-    
-    def get_ingredient_alternatives(self, missing_ingredient: str, recipe_context: str) -> str:
-        """Get ingredient alternatives (LLM call)"""
-        chain = self.alternative_prompt | self.llm | StrOutputParser()
-        return chain.invoke({
-            "missing_ingredient": missing_ingredient,
-            "recipe_context": recipe_context
-        })
+    # - generate_image_with_gemini()
+    # - generate_image_with_stable_diffusion()
+    # - generate_image_prompt()
+    # - get_ingredient_alternatives()
     
     # ========================================================
     # Helper Methods

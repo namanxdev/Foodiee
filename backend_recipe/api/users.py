@@ -4,8 +4,8 @@ Handles user authentication and profile management
 """
 
 from fastapi import APIRouter, HTTPException
-from models.schemas import UserSignInRequest, UserResponse, UserPreferencesRequest
-from model.User_model import user_model
+from models import UserSignInRequest, UserResponse
+from database.user_db import user_db_service
 
 router = APIRouter(prefix="/api/user", tags=["users"])
 
@@ -16,7 +16,7 @@ async def user_signin(user_data: UserSignInRequest):
     Call this endpoint from your NextAuth callback
     """
     try:
-        result = user_model.create_or_update_user({
+        result = user_db_service.create_or_update_user({
             "email": user_data.email,
             "name": user_data.name,
             "image": user_data.image,
@@ -30,7 +30,7 @@ async def user_signin(user_data: UserSignInRequest):
 async def get_user(email: str):
     """Get user information by email"""
     try:
-        user = user_model.get_user_by_email(email)
+        user = user_db_service.get_user_by_email(email)
         if user:
             return {"success": True, "user": user}
         else:
@@ -38,29 +38,11 @@ async def get_user(email: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/{email}/preferences")
-async def update_user_preferences(email: str, preferences: UserPreferencesRequest):
-    """Update user's food preferences"""
-    try:
-        preferences_dict = {
-            "region": preferences.region,
-            "taste_preferences": preferences.taste_preferences,
-            "meal_type": preferences.meal_type,
-            "time_available": preferences.time_available,
-            "allergies": preferences.allergies,
-            "dislikes": preferences.dislikes,
-            "available_ingredients": preferences.available_ingredients
-        }
-        result = user_model.update_user_preferences(email, preferences_dict)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 @router.get("/{email}/preferences")
 async def get_user_preferences_endpoint(email: str):
     """Get user's saved preferences"""
     try:
-        preferences = user_model.get_user_preferences(email)
+        preferences = user_db_service.get_user_preferences(email)
         if preferences:
             return {"success": True, "preferences": preferences}
         else:

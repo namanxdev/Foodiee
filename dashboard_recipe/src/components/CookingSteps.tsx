@@ -44,7 +44,7 @@ export default function CookingSteps({ sessionId, recipeName, steps, onFinish, o
     setImageLoading(true);
 
     try {
-      const response = await fetch(`http://localhost:8000/api/step/image?session_id=${sessionId}`, {
+      const response = await fetch(`http://localhost:8000/api/step/gemini_image?session_id=${sessionId}`, {
         method: "POST",
       });
 
