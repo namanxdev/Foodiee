@@ -34,7 +34,7 @@ export const api = {
 
   async generateStepImage(sessionId: string) {
     const response = await fetch(
-      `${API_BASE_URL}/api/step/image?session_id=${sessionId}`,
+      `${API_BASE_URL}/api/step/gemini_image?session_id=${sessionId}`,
       {
         method: "POST",
       }

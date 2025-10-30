@@ -6,17 +6,19 @@ Includes full CRUD operations
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Query, Body
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Query
 import math
 
-from models.schemas import (
+from models import (
     TopRecipeModel,
     TopRecipeSummaryModel,
     TopRecipesResponse,
     AvailableFiltersResponse,
     IngredientDetail,
-    TasteDetail
+    TasteDetail,
+    CreateRecipeRequest,
+    UpdateRecipeRequest,
+    UpdateFieldsRequest
 )
 from core.top_recipes_service import (
     get_top_recipes,
@@ -30,63 +32,6 @@ from core.top_recipes_service import (
 )
 
 router = APIRouter(prefix="/api/top-recipes", tags=["top-recipes"])
-
-
-# ============================================================================
-# Request/Response Models for CRUD
-# ============================================================================
-
-class CreateRecipeRequest(BaseModel):
-    """Request model for creating a new recipe"""
-    name: str
-    description: Optional[str] = None
-    region: Optional[str] = None
-    tastes: List[dict] = []  # [{"name": "Spicy", "intensity": 4}]
-    meal_types: List[str] = []
-    dietary_tags: List[str] = []
-    difficulty: Optional[str] = None
-    prep_time_minutes: Optional[int] = None
-    cook_time_minutes: Optional[int] = None
-    total_time_minutes: Optional[int] = None
-    servings: Optional[int] = None
-    calories: Optional[int] = None
-    ingredients: List[dict] = []  # [{"quantity": "2", "unit": "cups", "name": "Rice", "preparation": ""}]
-    steps: List[str] = []
-    image_url: Optional[str] = None
-    step_image_urls: List[str] = []
-    rating: float = 0.0
-    popularity_score: float = 0.0
-    source: str = "api"
-
-
-class UpdateRecipeRequest(BaseModel):
-    """Request model for updating a recipe (all fields optional)"""
-    name: Optional[str] = None
-    description: Optional[str] = None
-    region: Optional[str] = None
-    tastes: Optional[List[dict]] = None
-    meal_types: Optional[List[str]] = None
-    dietary_tags: Optional[List[str]] = None
-    difficulty: Optional[str] = None
-    prep_time_minutes: Optional[int] = None
-    cook_time_minutes: Optional[int] = None
-    total_time_minutes: Optional[int] = None
-    servings: Optional[int] = None
-    calories: Optional[int] = None
-    ingredients: Optional[List[dict]] = None
-    steps: Optional[List[str]] = None
-    image_url: Optional[str] = None
-    step_image_urls: Optional[List[str]] = None
-    rating: Optional[float] = None
-    popularity_score: Optional[float] = None
-
-
-class UpdateFieldsRequest(BaseModel):
-    """Request model for updating specific fields"""
-    steps: Optional[List[str]] = None
-    step_image_urls: Optional[List[str]] = None
-    ingredients: Optional[List[dict]] = None
-    image_url: Optional[str] = None
 
 
 # ============================================================================

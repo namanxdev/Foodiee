@@ -1,41 +1,35 @@
 """
-Recipe Recommender Core Class
+RAG-based Recipe Recommender
+Uses vector store and LLM for recipe generation
 """
 
-import base64
-import gc
-import os
-import platform
-from io import BytesIO
-from typing import Optional, Tuple
-
-import torch
-from google import genai
 from langchain_core.output_parsers import StrOutputParser
 
-from config import (
-    llm, 
-    vision_llm, 
-    recipe_vector_store, 
-    IMAGE_GENERATION_ENABLED, 
-    stable_diffusion_pipe
-)
 from prompts import RecipePrompts
+from core.base_recommender import BaseRecommender
 
-class RecipeRecommender:
+
+class RecipeRecommender(BaseRecommender):
+    """
+    Traditional RAG-based recommender
+    - Uses vector store for recipe retrieval (if available)
+    - Generates recipes dynamically with LLM
+    - Suitable for PDF-based recipe collections
+    """
+    
     def __init__(self):
-        # Don't set these at init time - get them dynamically
-        # self.llm = llm  # This would be None at init time
-        # self.vision_llm = vision_llm  # This would be None at init time
-        # self.vector_store = recipe_vector_store  # This might be None at init time
+        """Initialize RAG-based recommender"""
+        super().__init__()
         
-        # Initialize prompts
+        # RAG-specific prompts
         self.recipe_prompt_with_rag = RecipePrompts.get_recipe_prompt_with_rag()
         self.recipe_prompt = RecipePrompts.get_recipe_prompt()
         self.detail_prompt_with_rag = RecipePrompts.get_detail_prompt_with_rag()
         self.detail_prompt = RecipePrompts.get_detail_prompt()
-        self.alternative_prompt = RecipePrompts.get_alternative_prompt()
-        self.sd_image_prompt = RecipePrompts.get_image_prompt()
+    
+    # ========================================================
+    # Properties (implement from BaseRecommender)
+    # ========================================================
     
     @property
     def llm(self):
@@ -54,6 +48,10 @@ class RecipeRecommender:
         """Get current vector store instance"""
         from config import get_recipe_vector_store
         return get_recipe_vector_store()
+    
+    # ========================================================
+    # Recipe Recommendation (RAG-specific implementation)
+    # ========================================================
     
     def recommend_recipes(self, preferences_str: str):
         """Get recipe recommendations"""
@@ -148,89 +146,8 @@ class RecipeRecommender:
             'tips': '\n'.join(tips_section)
         }
     
-    def generate_image_prompt(self, recipe_name: str, step_description: str):
-        """Generate image prompt for Stable Diffusion"""
-        chain = self.sd_image_prompt | self.llm | StrOutputParser()
-        return chain.invoke({
-            "recipe_name": recipe_name,
-            "step_description": step_description
-        }).strip()
-    
-    def generate_image(self, recipe_name: str, step_description: str) -> Tuple[Optional[object], str]:
-        """Generate image using Stable Diffusion"""
-        from config import get_image_generation_enabled, get_stable_diffusion_pipe
-        # Generate prompt
-        image_prompt = self.generate_image_prompt(recipe_name, step_description)
-        
-        IMAGE_GENERATION_ENABLED = get_image_generation_enabled()
-        stable_diffusion_pipe = get_stable_diffusion_pipe()
-        
-        if not IMAGE_GENERATION_ENABLED or stable_diffusion_pipe is None:
-            print("⚠️  Image generation not enabled or Stable Diffusion not initialized.")
-            return None, image_prompt
-        
-        try:
-            with torch.inference_mode():
-                with torch.autocast(device_type="cpu"):  # Auto-cast for better performance
-                    image = stable_diffusion_pipe(
-                        image_prompt,
-                        num_inference_steps=30,
-                        guidance_scale=7.5,
-                        height=512,
-                        width=512
-                    ).images[0]
-            
-            # Clear memory based on device
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-            if platform.system() == "Darwin" and torch.backends.mps.is_available():
-                torch.mps.empty_cache()
-            
-            gc.collect()
-            
-            return image, image_prompt
-        except Exception as e:
-            print(f"Error generating image: {e}")
-            import traceback
-            traceback.print_exc()
-            return None, image_prompt
-    
-    def gemini_image_generator(self,recipe_name:str, step_description: str) -> Tuple[Optional[str], str]:
-        """Generate an image via Gemini using session context."""
-        image_prompt = self.generate_image_prompt(recipe_name, step_description)
-        
-        api_key = os.environ.get("GOOGLE_API_KEY")
-        if not api_key:
-            raise ValueError("GOOGLE_API_KEY not configured")
-        
-        client = genai.Client(api_key=api_key)
-        
-        try:
-            result = client.models.generate_images(
-                model="imagen-4.0-generate-001",
-                prompt=image_prompt,
-            )
-        except Exception as exc:
-            raise ValueError(f"Gemini image generation failed: {exc}") from exc
-        
-        image_base64 = None
-        if result and getattr(result, "generated_images", None):
-            primary = result.generated_images[0]
-            image_bytes = None
-            if hasattr(primary, "image") and getattr(primary.image, "image_bytes", None):
-                image_bytes = primary.image.image_bytes
-            elif hasattr(primary, "image_bytes"):
-                image_bytes = primary.image_bytes
-            
-            if image_bytes:
-                image_base64 = base64.b64encode(image_bytes).decode("utf-8")
-        
-        return image_base64, image_prompt
-    
-    def get_ingredient_alternatives(self, missing_ingredient: str, recipe_context: str):
-        """Get ingredient alternatives"""
-        chain = self.alternative_prompt | self.llm | StrOutputParser()
-        return chain.invoke({
-            "missing_ingredient": missing_ingredient,
-            "recipe_context": recipe_context
-        })
+    # Image generation methods inherited from BaseRecommender:
+    # - generate_image_with_gemini()
+    # - generate_image_with_stable_diffusion()
+    # - generate_image_prompt()
+    # - get_ingredient_alternatives()

@@ -132,3 +132,69 @@ Example: "Professional overhead shot of golden pakoras frying in hot oil, bubble
 
 Your prompt:""")
         ])
+    
+    @staticmethod
+    def get_ranking_prompt():
+        """Database recipe ranking prompt for optimized recommender"""
+        return ChatPromptTemplate.from_template("""
+You are a chef helping personalize recipe recommendations.
+
+User Preferences:
+{preferences}
+
+Here are {count} recipes from our database that match the user's cuisine and meal type:
+{recipes}
+
+AVAILABLE RECIPE NAMES (copy these EXACTLY):
+{available_names}
+
+Your task: Rank these recipes from most to least suitable for this user, considering:
+1. Their taste preferences
+2. Their available ingredients
+3. Their skill level (infer from time available)
+4. Their dietary restrictions
+
+🚨 CRITICAL INSTRUCTIONS - READ CAREFULLY:
+- You MUST use the EXACT recipe names listed under "AVAILABLE RECIPE NAMES" above
+- Copy the names CHARACTER-BY-CHARACTER from that list
+- DO NOT write "Recipe 1", "Recipe 2", "Recipe 3" - these are placeholder names
+- DO NOT paraphrase or shorten the recipe names
+- If the name is "Kadai Paneer", write "Kadai Paneer" - not "Recipe 2" or "Paneer Recipe"
+
+Return ONLY the top 3 recipes in this exact format (use EXACT names from AVAILABLE RECIPE NAMES):
+
+1. [EXACT Recipe Name] - [One sentence why it's perfect]
+2. [EXACT Recipe Name] - [One sentence why it's perfect]
+3. [EXACT Recipe Name] - [One sentence why it's perfect]
+
+Remember: Copy names EXACTLY from the AVAILABLE RECIPE NAMES list above!
+""")
+    
+    @staticmethod
+    def get_step_breakdown_prompt():
+        """Prompt to break down complex recipe instructions into clear steps"""
+        return ChatPromptTemplate.from_template("""
+You are an expert chef providing step-by-step cooking instructions.
+
+Recipe: {recipe_name}
+
+Current Instructions:
+{instructions}
+
+Your task: Break this down into clear, numbered cooking steps.
+
+Requirements:
+1. Each step should be ONE clear action
+2. Format: "STEP 1: [action]", "STEP 2: [action]", etc.
+3. Keep steps short (1-2 sentences maximum)
+4. Make it easy to follow while cooking
+5. Include all important details (temperature, timing, technique)
+6. Order: Prep → Cook → Finish
+
+Example format:
+STEP 1: Heat oil in a large pan over medium heat
+STEP 2: Add chopped onions and sauté until golden brown (about 5 minutes)
+STEP 3: Add spices and cook for 1 minute until fragrant
+
+Now provide the steps for the recipe above:
+""")

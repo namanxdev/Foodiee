@@ -1,21 +1,21 @@
 """
-User Model for Supabase Database Integration
-Handles user authentication and profile data storage
+User Database Service
+Handles user authentication and profile data storage with Supabase
 """
 
+import os
 from supabase import create_client, Client
 from datetime import datetime
 from typing import Optional, Dict, Any
-import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
-class UserModel:
+class UserDatabaseService:
     """
-    User Model to interact with Supabase database
-    Stores user information from NextAuth Google OAuth
+    User database service for Supabase operations
+    Handles user CRUD operations and preferences management
     """
     
     def __init__(self):
@@ -31,10 +31,10 @@ class UserModel:
     
     def create_or_update_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Create a new user or update existing user in Supabase
+        Create a new user or update existing user
         
         Args:
-            user_data: Dictionary containing user information from NextAuth
+            user_data: User information from NextAuth
                 - email (required): User's email
                 - name (optional): User's full name
                 - image (optional): User's profile image URL
@@ -94,7 +94,7 @@ class UserModel:
             result = self.client.table(self.table_name).select("*").eq("email", email).execute()
             return result.data[0] if result.data else None
         except Exception as e:
-            print(f"Error fetching user: {e}")
+            print(f"Error fetching user by email: {e}")
             return None
     
     def get_user_by_id(self, user_id: int) -> Optional[Dict[str, Any]]:
@@ -111,7 +111,7 @@ class UserModel:
             result = self.client.table(self.table_name).select("*").eq("id", user_id).execute()
             return result.data[0] if result.data else None
         except Exception as e:
-            print(f"Error fetching user: {e}")
+            print(f"Error fetching user by ID: {e}")
             return None
     
     def update_user_preferences(self, email: str, preferences: Dict[str, Any]) -> Dict[str, Any]:
@@ -120,7 +120,7 @@ class UserModel:
         
         Args:
             email: User's email
-            preferences: Dictionary of user preferences (allergies, dislikes, etc.)
+            preferences: Dictionary of preferences (allergies, dislikes, etc.)
         
         Returns:
             Success status and updated user data
@@ -170,5 +170,5 @@ class UserModel:
             return {"success": False, "error": str(e)}
 
 
-# Global instance
-user_model = UserModel()
+# Global instance for easy access
+user_db_service = UserDatabaseService()
