@@ -119,7 +119,7 @@ export default function TopRecipes() {
 
       {/* No Results */}
       {!loading && !error && recipes.length === 0 && (
-        <div className="bg-gray-100 dark:bg-gray-800 p-12 rounded-xl text-center">
+        <div className="bg-gray-100 dark:bg-slate-800 p-12 rounded-xl text-center">
           <FaUtensils className="text-6xl text-gray-400 dark:text-gray-600 mx-auto mb-4" />
           <p className="text-xl font-bold text-gray-700 dark:text-gray-300 mb-2">
             No recipes found
@@ -149,7 +149,7 @@ export default function TopRecipes() {
               <button
                 onClick={() => handlePageChange((filters.page || 1) - 1)}
                 disabled={filters.page === 1}
-                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <FaChevronLeft />
                 Previous
@@ -161,7 +161,7 @@ export default function TopRecipes() {
                   <>
                     <button
                       onClick={() => handlePageChange(1)}
-                      className="w-10 h-10 rounded-lg bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
+                      className="w-10 h-10 rounded-lg bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-slate-700"
                     >
                       1
                     </button>
@@ -182,7 +182,7 @@ export default function TopRecipes() {
                       className={`w-10 h-10 rounded-lg font-medium transition-colors ${
                         page === filters.page
                           ? 'bg-orange-500 text-white border-2 border-orange-500'
-                          : 'bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                          : 'bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700'
                       }`}
                     >
                       {page}
@@ -195,7 +195,7 @@ export default function TopRecipes() {
                     <span className="text-gray-500">...</span>
                     <button
                       onClick={() => handlePageChange(totalPages)}
-                      className="w-10 h-10 rounded-lg bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
+                      className="w-10 h-10 rounded-lg bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-slate-700"
                     >
                       {totalPages}
                     </button>
@@ -206,7 +206,7 @@ export default function TopRecipes() {
               <button
                 onClick={() => handlePageChange((filters.page || 1) + 1)}
                 disabled={filters.page === totalPages}
-                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Next
                 <FaChevronRight />

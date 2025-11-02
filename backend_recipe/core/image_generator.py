@@ -27,11 +27,11 @@ class ImageGenerator:
     - Stable Diffusion (local)
     """
     
-    def __init__(self, llm, sd_image_prompt):
+    def __init__(self, llm, sd_image_prompt=None):
         """
         Args:
             llm: Language model for prompt generation
-            sd_image_prompt: Prompt template for image generation
+            sd_image_prompt: Prompt template for image generation (optional)
         """
         self.llm = llm
         self.sd_image_prompt = sd_image_prompt
@@ -51,11 +51,15 @@ class ImageGenerator:
         Returns:
             Optimized prompt string for image generation
         """
-        chain = self.sd_image_prompt | self.llm | StrOutputParser()
-        return chain.invoke({
-            "recipe_name": recipe_name,
-            "step_description": step_description
-        }).strip()
+        if self.sd_image_prompt:
+            chain = self.sd_image_prompt | self.llm | StrOutputParser()
+            return chain.invoke({
+                "recipe_name": recipe_name,
+                "step_description": step_description
+            }).strip()
+        else:
+            # Simple default prompt when sd_image_prompt is not provided
+            return f"Generate a high-quality, professional food photography image of {recipe_name}. {step_description}. The image should be appetizing, well-lit, and show the dish in an attractive presentation."
     
     def generate_image(
         self,

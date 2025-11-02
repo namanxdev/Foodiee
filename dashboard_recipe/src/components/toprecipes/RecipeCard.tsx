@@ -16,7 +16,7 @@ export default function RecipeCard({ recipe, onClick }: RecipeCardProps) {
   return (
     <div
       onClick={() => onClick(recipe)}
-      className="group bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden cursor-pointer transform transition-all duration-300 hover:scale-105 hover:shadow-2xl"
+      className="group bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden cursor-pointer transform transition-all duration-300 hover:scale-105 hover:shadow-2xl"
     >
       {/* Image Section */}
       <div className="relative h-48 overflow-hidden bg-gray-200 dark:bg-gray-700">

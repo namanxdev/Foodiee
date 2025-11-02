@@ -5,3 +5,8 @@ __pycache__/
 node_modules/
 .venv/
 *temp/
+*.md
+
+backend_recipe/run_image_generation_migration.py
+*.sql
+backend_recipe/reset_stuck_job.py

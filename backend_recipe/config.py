@@ -54,12 +54,12 @@ def initialize_ai_models():
     
     # Initialize Gemini models
     llm = ChatGoogleGenerativeAI(
-        model="gemini-2.0-flash-exp",
+        model=os.environ.get("GEMINI_TEXT_MODEL", "gemini-2.0-flash-lite"),
         google_api_key=GOOGLE_API_KEY
     )
     
     vision_llm = ChatGoogleGenerativeAI(
-        model="gemini-2.0-flash-exp",
+        model=os.environ.get("GEMINI_VISION_MODEL", "gemini-2.0-flash-lite"),
         google_api_key=GOOGLE_API_KEY
     )
     

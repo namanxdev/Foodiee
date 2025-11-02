@@ -40,6 +40,17 @@ class TopRecipe:
     source: str
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+    # New fields for recipe regeneration
+    ingredients_image: Optional[str] = None
+    steps_beginner: Optional[List[str]] = None
+    steps_advanced: Optional[List[str]] = None
+    steps_beginner_images: Optional[List[Dict[str, any]]] = None  # [{url, step_index, generated_at}]
+    steps_advanced_images: Optional[List[Dict[str, any]]] = None  # [{url, step_index, generated_at}]
+    ingredient_image_urls: Optional[List[Dict[str, any]]] = None  # [{url, ingredient_index, ingredient_name}]
+    validation_status: Optional[str] = None
+    data_quality_score: Optional[int] = None
+    is_complete: Optional[bool] = None
+    last_validated_at: Optional[str] = None
 
 
 @dataclass
@@ -92,7 +103,18 @@ def row_to_recipe(row: dict) -> TopRecipe:
         rating=float(row['rating']) if row['rating'] else 0.0,
         source=row['source'],
         created_at=str(row['created_at']) if row.get('created_at') else None,
-        updated_at=str(row['updated_at']) if row.get('updated_at') else None
+        updated_at=str(row['updated_at']) if row.get('updated_at') else None,
+        # New fields
+        ingredients_image=row.get('ingredients_image'),
+        steps_beginner=row.get('steps_beginner') if row.get('steps_beginner') else None,
+        steps_advanced=row.get('steps_advanced') if row.get('steps_advanced') else None,
+        steps_beginner_images=row.get('steps_beginner_images') if row.get('steps_beginner_images') else None,
+        steps_advanced_images=row.get('steps_advanced_images') if row.get('steps_advanced_images') else None,
+        ingredient_image_urls=row.get('ingredient_image_urls') if row.get('ingredient_image_urls') else None,
+        validation_status=row.get('validation_status'),
+        data_quality_score=row.get('data_quality_score'),
+        is_complete=row.get('is_complete'),
+        last_validated_at=str(row['last_validated_at']) if row.get('last_validated_at') else None
     )
 
 
@@ -315,7 +337,13 @@ def update_recipe(
     image_url: Optional[str] = None,
     step_image_urls: Optional[List[str]] = None,
     rating: Optional[float] = None,
-    popularity_score: Optional[float] = None
+    popularity_score: Optional[float] = None,
+    ingredients_image: Optional[str] = None,
+    steps_beginner: Optional[List[str]] = None,
+    steps_advanced: Optional[List[str]] = None,
+    validation_status: Optional[str] = None,
+    data_quality_score: Optional[int] = None,
+    is_complete: Optional[bool] = None
 ) -> bool:
     """Update specific fields of an existing recipe"""
     updates = []
@@ -392,6 +420,30 @@ def update_recipe(
     if popularity_score is not None:
         updates.append("popularity_score = %s")
         params.append(popularity_score)
+    
+    if ingredients_image is not None:
+        updates.append("ingredients_image = %s")
+        params.append(ingredients_image)
+    
+    if steps_beginner is not None:
+        updates.append("steps_beginner = %s")
+        params.append(json.dumps(steps_beginner))
+    
+    if steps_advanced is not None:
+        updates.append("steps_advanced = %s")
+        params.append(json.dumps(steps_advanced))
+    
+    if validation_status is not None:
+        updates.append("validation_status = %s")
+        params.append(validation_status)
+    
+    if data_quality_score is not None:
+        updates.append("data_quality_score = %s")
+        params.append(data_quality_score)
+    
+    if is_complete is not None:
+        updates.append("is_complete = %s")
+        params.append(is_complete)
     
     if not updates:
         return False
