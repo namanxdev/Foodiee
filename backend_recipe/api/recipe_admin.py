@@ -461,10 +461,11 @@ def validate_recipes(
 
 @router.get("/jobs")
 def list_jobs(
-    limit: int = 20,
+    status: str = None,
+    limit: int = 100,
     admin_email: str = Header(None, alias="X-Admin-Email")
 ):
-    """List recent regeneration jobs"""
+    """List recent regeneration jobs with optional status filter"""
     verify_admin(admin_email)
     
     try:
@@ -478,11 +479,19 @@ def list_jobs(
         conn = psycopg.connect(supabase_url, row_factory=dict_row)
         
         with conn.cursor() as cur:
-            cur.execute("""
-                SELECT * FROM recipe_regeneration_jobs
-                ORDER BY started_at DESC
-                LIMIT %s
-            """, (limit,))
+            if status:
+                cur.execute("""
+                    SELECT * FROM recipe_regeneration_jobs
+                    WHERE status = %s
+                    ORDER BY started_at DESC
+                    LIMIT %s
+                """, (status, limit))
+            else:
+                cur.execute("""
+                    SELECT * FROM recipe_regeneration_jobs
+                    ORDER BY started_at DESC
+                    LIMIT %s
+                """, (limit,))
             jobs = cur.fetchall()
         
         conn.close()
@@ -517,6 +526,84 @@ def get_job_status_endpoint(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/jobs/{job_id}/cancel")
+def cancel_job_endpoint(
+    job_id: int,
+    admin_email: str = Header(None, alias="X-Admin-Email")
+):
+    """Cancel a running job"""
+    verify_admin(admin_email)
+    
+    conn = None
+    try:
+        import psycopg
+        from psycopg.rows import dict_row
+        import os
+        from dotenv import load_dotenv
+        
+        load_dotenv()
+        supabase_url = os.environ.get("SUPABASE_OG_URL")
+        if not supabase_url:
+            raise HTTPException(status_code=500, detail="Database configuration error")
+        
+        conn = psycopg.connect(supabase_url, row_factory=dict_row)
+        
+        with conn.cursor() as cur:
+            # Check if job exists and is running
+            cur.execute("""
+                SELECT id, status FROM recipe_regeneration_jobs
+                WHERE id = %s
+            """, (job_id,))
+            job = cur.fetchone()
+            
+            if not job:
+                raise HTTPException(status_code=404, detail="Job not found")
+            
+            if job['status'] not in ['pending', 'running']:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Cannot cancel job with status '{job['status']}'. Only 'pending' or 'running' jobs can be cancelled."
+                )
+            
+            # Update status to cancelled
+            cur.execute("""
+                UPDATE recipe_regeneration_jobs
+                SET status = 'cancelled',
+                    completed_at = NOW(),
+                    error_message = 'Cancelled by admin'
+                WHERE id = %s
+            """, (job_id,))
+            conn.commit()
+            
+            # Log the cancellation
+            cur.execute("""
+                INSERT INTO recipe_regeneration_logs
+                (job_id, recipe_id, recipe_name, log_level, message, operation, details)
+                VALUES (%s, NULL, NULL, %s, %s, %s, NULL)
+            """, (
+                job_id,
+                'WARNING',
+                f"Job {job_id} cancelled by admin: {admin_email}",
+                'job_cancel'
+            ))
+            conn.commit()
+        
+        return {
+            "success": True,
+            "message": f"Job {job_id} has been cancelled successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        error_detail = f"{str(e)}\n{traceback.format_exc()}"
+        print(f"Error cancelling job {job_id}: {error_detail}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn and not conn.closed:
+            conn.close()
 
 
 @router.get("/jobs/{job_id}/logs")

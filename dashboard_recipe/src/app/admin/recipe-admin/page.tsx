@@ -20,8 +20,9 @@ import { ExportTab } from '../../../components/recipe-admin/ExportTab';
 import { MassGenerationTab } from '../../../components/recipe-admin/MassGenerationTab';
 import { SpecificGenerationTab } from '../../../components/recipe-admin/SpecificGenerationTab';
 import { ValidatorTab } from '../../../components/recipe-admin/ValidatorTab';
+import { JobsTab } from '../../../components/recipe-admin/JobsTab';
 
-type Tab = 'data' | 'export' | 'mass-gen' | 'specific-gen' | 'validator';
+type Tab = 'data' | 'export' | 'mass-gen' | 'specific-gen' | 'validator' | 'jobs';
 
 export default function RecipeAdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>('data');
@@ -90,6 +91,7 @@ export default function RecipeAdminPage() {
     { id: 'mass-gen', label: 'Mass Generation', icon: '🔄' },
     { id: 'specific-gen', label: 'Specific Generation', icon: '🎯' },
     { id: 'validator', label: 'Validator', icon: '✅' },
+    { id: 'jobs', label: 'Jobs', icon: '⚙️' },
   ];
 
   return (
@@ -144,6 +146,7 @@ export default function RecipeAdminPage() {
         {activeTab === 'mass-gen' && <MassGenerationTab />}
         {activeTab === 'specific-gen' && <SpecificGenerationTab />}
         {activeTab === 'validator' && <ValidatorTab />}
+        {activeTab === 'jobs' && <JobsTab />}
       </main>
     </div>
   );

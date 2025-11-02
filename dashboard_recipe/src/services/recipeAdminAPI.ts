@@ -242,3 +242,41 @@ export const downloadFile = (blob: Blob, filename: string): void => {
   document.body.removeChild(a);
   window.URL.revokeObjectURL(url);
 };
+
+/**
+ * Get list of all jobs (with optional status filter)
+ */
+export const getJobs = async (
+  status?: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled',
+  limit: number = 100
+): Promise<JobsListResponse> => {
+  const params = new URLSearchParams();
+  if (status) params.append('status', status);
+  params.append('limit', limit.toString());
+
+  const response = await fetch(`${API_BASE_URL}/jobs?${params}`, {
+    headers: getHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch jobs: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+/**
+ * Cancel/stop a running job
+ */
+export const cancelJob = async (jobId: number): Promise<{ message: string }> => {
+  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/cancel`, {
+    method: 'POST',
+    headers: getHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to cancel job: ${response.statusText}`);
+  }
+
+  return response.json();
+};

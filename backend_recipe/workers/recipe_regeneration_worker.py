@@ -593,6 +593,16 @@ def start_recipe_regeneration(
         skipped = 0
         
         for i, recipe in enumerate(recipes):
+            # Check if job was cancelled
+            job_status = tracker.get_job_status()
+            if job_status and job_status.get('status') == 'cancelled':
+                tracker.log(
+                    f"Job cancelled - stopping after processing {i} recipes",
+                    "WARNING",
+                    metadata={"processed": i}
+                )
+                break
+            
             tracker.log(
                 f"Processing recipe {i+1}/{len(recipes)}",
                 "INFO",
