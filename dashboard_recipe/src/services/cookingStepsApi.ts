@@ -124,7 +124,7 @@ export async function generateStepImageSD(
   sessionId: string
 ): Promise<StepImageResponse> {
   return fetchAPI<StepImageResponse>(
-    `${API_BASE_URL}/api/step/image?session_id=${sessionId}`,
+    `${API_BASE_URL}/api/step/gemini_image?session_id=${sessionId}`,
     {
       method: 'POST',
     }

@@ -22,7 +22,9 @@ import type {
   StatisticsResponse,
 } from '../types/recipeAdmin';
 
-const API_BASE_URL = 'http://localhost:8000/api/recipe-admin';
+import { API_CONFIG } from '@/constants';
+
+const API_BASE_URL = `${API_CONFIG.BASE_URL}/api/recipe-admin`;
 
 /**
  * Admin email management (stored in localStorage)

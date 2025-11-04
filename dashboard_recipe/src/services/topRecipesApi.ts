@@ -4,6 +4,8 @@
  * TypeScript service layer for interacting with the top recipes API
  */
 
+import { API_CONFIG } from '@/constants';
+
 // ============================================================================
 // TypeScript Interfaces
 // ============================================================================
@@ -97,7 +99,7 @@ export interface RecipeFilters {
 // API Configuration
 // ============================================================================
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = API_CONFIG.BASE_URL;
 const TOP_RECIPES_ENDPOINT = `${API_BASE_URL}/api/top-recipes`;
 
 // ============================================================================

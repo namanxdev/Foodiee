@@ -8,6 +8,7 @@
 import { useState, useEffect } from 'react';
 import { startMassGeneration, pollJobStatus, getJobLogs, getStatistics } from '@/services/recipeAdminAPI';
 import type { RegenerationJob, RegenerationLog, RecipeStatistics } from '@/types/recipeAdmin';
+import { API_CONFIG } from '@/constants';
 
 export function MassGenerationTab() {
   const [statistics, setStatistics] = useState<RecipeStatistics | null>(null);
@@ -59,7 +60,7 @@ export function MassGenerationTab() {
         // Fetch job details periodically
         const interval = setInterval(async () => {
           try {
-            const jobs = await fetch('http://localhost:8000/api/recipe-admin/jobs?limit=1', {
+            const jobs = await fetch(`${API_CONFIG.BASE_URL}/api/recipe-admin/jobs?limit=1`, {
               headers: { 'X-Admin-Email': localStorage.getItem('adminEmail') || '' },
             }).then(r => r.json());
             

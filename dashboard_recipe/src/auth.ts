@@ -1,5 +1,6 @@
 import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
+import { API_CONFIG } from "@/constants"
  
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [Google],
@@ -7,7 +8,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async signIn({ user, account, profile }) {
       // Sync user with backend database
       try {
-        const response = await fetch('http://localhost:8000/api/user/signin', {
+        const response = await fetch(`${API_CONFIG.BASE_URL}/api/user/signin`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

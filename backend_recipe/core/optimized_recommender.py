@@ -320,7 +320,6 @@ class OptimizedRecipeRecommender(BaseRecommender):
     # Image Generation (inherited from BaseRecommender)
     # ========================================================
     # - generate_image_with_gemini()
-    # - generate_image_with_stable_diffusion()
     # - generate_image_prompt()
     # - get_ingredient_alternatives()
     

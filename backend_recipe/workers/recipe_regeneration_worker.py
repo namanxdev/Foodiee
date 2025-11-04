@@ -190,263 +190,30 @@ def process_single_recipe(
     """
     recipe_id = recipe['id']
     recipe_name = recipe['name']
-    any_changes = False
     updates = {}
     
-    tracker.log(
-        f"Processing recipe: {recipe_name}",
-        "INFO",
-        recipe_id,
-        recipe_name
-    )
+    tracker.log(f"Processing recipe: {recipe_name}", "INFO", recipe_id, recipe_name)
     
     try:
-        # 1. Fix Main Image (only if null)
+        # Apply fixes
         if fix_main_image:
-            current_image = recipe.get('image_url')
-            new_image = service.generate_main_image(
-                recipe_id,
-                recipe_name,
-                recipe.get('description', ''),
-                current_image
-            )
-            if new_image and new_image != current_image:
-                updates['image_url'] = new_image
-                any_changes = True
+            _fix_main_image(recipe, service, updates)
         
-        # 2. Fix Ingredients Image (only if null)
         if fix_ingredients_image:
-            # Convert ingredients to JSON string if it's a list/dict
-            ingredients = recipe.get('ingredients', '')
-            if isinstance(ingredients, (list, dict)):
-                ingredients = json.dumps(ingredients)
-            
-            current_ingredients_image = recipe.get('ingredients_image')
-            new_ingredients_image = service.generate_ingredients_image(
-                recipe_id,
-                recipe_name,
-                ingredients,
-                current_ingredients_image
-            )
-            if new_ingredients_image and new_ingredients_image != current_ingredients_image:
-                updates['ingredients_image'] = new_ingredients_image
-                any_changes = True
+            _fix_ingredients_image(recipe, service, updates)
         
-        # 3. Fix Ingredients Text
         if fix_ingredients_text:
-            # Convert ingredients to JSON string if it's a list/dict
-            ingredients = recipe.get('ingredients', '')
-            if isinstance(ingredients, (list, dict)):
-                ingredients = json.dumps(ingredients)
-            
-            validation_result = service.validate_and_fix_ingredients(
-                recipe_id,
-                recipe_name,
-                recipe.get('region', ''),  # Use 'region' instead of 'cuisine'
-                ingredients
-            )
-            if validation_result and not validation_result.get('is_valid'):
-                updates['ingredients'] = validation_result.get('corrected_ingredients')
-                any_changes = True
+            _fix_ingredients_text(recipe, service, updates)
         
-        # 4. Fix Steps Text (beginner + advanced) - WITH RESUME LOGIC
         if fix_steps_text:
-            # Convert ingredients and steps to JSON strings if they're lists/dicts
-            ingredients = recipe.get('ingredients', '')
-            if isinstance(ingredients, (list, dict)):
-                ingredients = json.dumps(ingredients)
-            
-            steps = recipe.get('steps', '')
-            if isinstance(steps, (list, dict)):
-                steps = json.dumps(steps)
-            
-            # Generate beginner steps (resume if partially complete)
-            existing_beginner = recipe.get('steps_beginner') if recipe.get('steps_beginner') else None
-            desired_beginner_count = 10  # Default target
-            
-            # Only generate if not complete
-            if not existing_beginner or len(existing_beginner) < desired_beginner_count:
-                beginner_steps = service.generate_beginner_steps(
-                    recipe_id,
-                    recipe_name,
-                    recipe.get('description', ''),
-                    ingredients,
-                    steps,
-                    existing_steps=existing_beginner,
-                    desired_count=desired_beginner_count
-                )
-                if beginner_steps:
-                    updates['steps_beginner'] = json.dumps(beginner_steps)
-                    any_changes = True
-            
-            # Generate advanced steps (resume if partially complete)
-            existing_advanced = recipe.get('steps_advanced') if recipe.get('steps_advanced') else None
-            desired_advanced_count = 8  # Default target (fewer than beginner)
-            
-            # Only generate if not complete
-            if not existing_advanced or len(existing_advanced) < desired_advanced_count:
-                advanced_steps = service.generate_advanced_steps(
-                    recipe_id,
-                    recipe_name,
-                    recipe.get('description', ''),
-                    ingredients,
-                    steps,
-                    existing_steps=existing_advanced,
-                    desired_count=desired_advanced_count
-                )
-                if advanced_steps:
-                    updates['steps_advanced'] = json.dumps(advanced_steps)
-                    any_changes = True
+            _fix_steps_text(recipe, service, updates)
         
-        # 5. Fix Steps Images (STRICT 1:1 INDEX MATCHING with resume logic)
-        # Process beginner first, then advanced - never overwrite, never mismatch
         if fix_steps_images:
-            # BEGINNER STEP IMAGES - strict 1:1 matching
-            beginner_steps = None
-            if 'steps_beginner' in updates:
-                beginner = updates['steps_beginner']
-                beginner_steps = json.loads(beginner) if isinstance(beginner, str) else beginner
-            elif recipe.get('steps_beginner'):
-                beginner_steps = recipe['steps_beginner']
-            
-            if beginner_steps and len(beginner_steps) > 0:
-                existing_beginner_images = recipe.get('steps_beginner_images', []) or []
-                existing_count = len(existing_beginner_images)
-                required_count = len(beginner_steps)
-                
-                # Only generate if images are missing (existing < required)
-                if existing_count < required_count:
-                    tracker.log(
-                        f"Beginner step images: have {existing_count}, need {required_count}. Generating {required_count - existing_count} missing images.",
-                        "INFO",
-                        recipe_id,
-                        recipe_name,
-                        operation="step_images_beginner"
-                    )
-                    
-                    # Generate images for missing indices only
-                    new_beginner_images = service.generate_step_images(
-                        recipe_id,
-                        recipe_name,
-                        beginner_steps,
-                        existing_beginner_images,
-                        step_type="beginner"
-                    )
-                    
-                    if len(new_beginner_images) > existing_count:
-                        updates['steps_beginner_images'] = json.dumps(new_beginner_images)
-                        any_changes = True
-                        tracker.log(
-                            f"Successfully generated {len(new_beginner_images) - existing_count} beginner step images. Total: {len(new_beginner_images)}/{required_count}",
-                            "SUCCESS",
-                            recipe_id,
-                            recipe_name,
-                            operation="step_images_beginner"
-                        )
-                elif existing_count == required_count:
-                    tracker.log(
-                        f"Beginner step images already complete ({existing_count}/{required_count}), skipping",
-                        "INFO",
-                        recipe_id,
-                        recipe_name,
-                        operation="step_images_beginner"
-                    )
-            
-            # ADVANCED STEP IMAGES - strict 1:1 matching
-            advanced_steps = None
-            if 'steps_advanced' in updates:
-                advanced = updates['steps_advanced']
-                advanced_steps = json.loads(advanced) if isinstance(advanced, str) else advanced
-            elif recipe.get('steps_advanced'):
-                advanced_steps = recipe['steps_advanced']
-            
-            if advanced_steps and len(advanced_steps) > 0:
-                existing_advanced_images = recipe.get('steps_advanced_images', []) or []
-                existing_count = len(existing_advanced_images)
-                required_count = len(advanced_steps)
-                
-                # Only generate if images are missing (existing < required)
-                if existing_count < required_count:
-                    tracker.log(
-                        f"Advanced step images: have {existing_count}, need {required_count}. Generating {required_count - existing_count} missing images.",
-                        "INFO",
-                        recipe_id,
-                        recipe_name,
-                        operation="step_images_advanced"
-                    )
-                    
-                    # Generate images for missing indices only
-                    new_advanced_images = service.generate_step_images(
-                        recipe_id,
-                        recipe_name,
-                        advanced_steps,
-                        existing_advanced_images,
-                        step_type="advanced"
-                    )
-                    
-                    if len(new_advanced_images) > existing_count:
-                        updates['steps_advanced_images'] = json.dumps(new_advanced_images)
-                        any_changes = True
-                        tracker.log(
-                            f"Successfully generated {len(new_advanced_images) - existing_count} advanced step images. Total: {len(new_advanced_images)}/{required_count}",
-                            "SUCCESS",
-                            recipe_id,
-                            recipe_name,
-                            operation="step_images_advanced"
-                        )
-                elif existing_count == required_count:
-                    tracker.log(
-                        f"Advanced step images already complete ({existing_count}/{required_count}), skipping",
-                        "INFO",
-                        recipe_id,
-                        recipe_name,
-                        operation="step_images_advanced"
-                    )
+            _fix_steps_images(recipe, service, tracker, updates)
         
-        # Update recipe if any changes
+        # Update database if any changes
         if updates:
-            conn = tracker._get_connection()
-            with conn.cursor() as cur:
-                # Build UPDATE query dynamically with JSONB casting for JSONB columns
-                jsonb_columns = {
-                    'steps_beginner', 'steps_advanced', 
-                    'step_image_urls', 'steps_beginner_images', 'steps_advanced_images',
-                    'ingredient_image_urls'
-                }
-                set_parts = []
-                for key in updates.keys():
-                    if key in jsonb_columns:
-                        set_parts.append(f"{key} = %s::jsonb")
-                    else:
-                        set_parts.append(f"{key} = %s")
-                set_clause = ', '.join(set_parts)
-                
-                values = list(updates.values())
-                values.append(recipe_id)
-                
-                cur.execute(f"""
-                    UPDATE top_recipes
-                    SET {set_clause}
-                    WHERE id = %s
-                """, values)
-                conn.commit()
-                
-                # Verify the update
-                cur.execute("""
-                    SELECT steps_beginner, steps_advanced 
-                    FROM top_recipes 
-                    WHERE id = %s
-                """, (recipe_id,))
-                result = cur.fetchone()
-                if result:
-                    tracker.log(
-                        f"Verification: steps_beginner has {len(result[0]) if result[0] else 0} steps, "
-                        f"steps_advanced has {len(result[1]) if result[1] else 0} steps",
-                        "INFO",
-                        recipe_id,
-                        recipe_name
-                    )
-            
+            _update_recipe_in_db(recipe_id, recipe_name, updates, tracker)
             tracker.log(
                 f"Successfully updated recipe with {len(updates)} changes",
                 "SUCCESS",
@@ -454,15 +221,10 @@ def process_single_recipe(
                 recipe_name,
                 metadata={"fields_updated": list(updates.keys())}
             )
+            return True
         else:
-            tracker.log(
-                f"No changes needed, skipping",
-                "INFO",
-                recipe_id,
-                recipe_name
-            )
-        
-        return any_changes
+            tracker.log(f"No changes needed, skipping", "INFO", recipe_id, recipe_name)
+            return False
         
     except Exception as e:
         error_msg = str(e)
@@ -474,6 +236,280 @@ def process_single_recipe(
             error_details={"error": error_msg, "traceback": traceback.format_exc()}
         )
         return False
+
+
+# ============================================================================
+# Helper Functions for process_single_recipe
+# ============================================================================
+
+def _fix_main_image(recipe: Dict, service: RecipeRegenerationService, updates: Dict):
+    """Fix main image if null"""
+    current_image = recipe.get('image_url')
+    new_image = service.generate_main_image(
+        recipe['id'],
+        recipe['name'],
+        recipe.get('description', ''),
+        current_image
+    )
+    if new_image and new_image != current_image:
+        updates['image_url'] = new_image
+
+
+def _fix_ingredients_image(recipe: Dict, service: RecipeRegenerationService, updates: Dict):
+    """Fix ingredients image if null"""
+    ingredients = recipe.get('ingredients', '')
+    if isinstance(ingredients, (list, dict)):
+        ingredients = json.dumps(ingredients)
+    
+    current_ingredients_image = recipe.get('ingredients_image')
+    new_ingredients_image = service.generate_ingredients_image(
+        recipe['id'],
+        recipe['name'],
+        ingredients,
+        current_ingredients_image
+    )
+    if new_ingredients_image and new_ingredients_image != current_ingredients_image:
+        updates['ingredients_image'] = new_ingredients_image
+
+
+def _fix_ingredients_text(recipe: Dict, service: RecipeRegenerationService, updates: Dict):
+    """Validate and fix ingredients text"""
+    ingredients = recipe.get('ingredients', '')
+    if isinstance(ingredients, (list, dict)):
+        ingredients = json.dumps(ingredients)
+    
+    validation_result = service.validate_and_fix_ingredients(
+        recipe['id'],
+        recipe['name'],
+        recipe.get('region', ''),
+        ingredients
+    )
+    if validation_result and not validation_result.get('is_valid'):
+        updates['ingredients'] = validation_result.get('corrected_ingredients')
+
+
+def _fix_steps_text(recipe: Dict, service: RecipeRegenerationService, updates: Dict):
+    """Generate or complete beginner and advanced steps"""
+    ingredients = recipe.get('ingredients', '')
+    if isinstance(ingredients, (list, dict)):
+        ingredients = json.dumps(ingredients)
+    
+    steps = recipe.get('steps', '')
+    if isinstance(steps, (list, dict)):
+        steps = json.dumps(steps)
+    
+    # Beginner steps
+    existing_beginner = recipe.get('steps_beginner')
+    if not existing_beginner or len(existing_beginner) < 10:
+        beginner_steps = service.generate_beginner_steps(
+            recipe['id'],
+            recipe['name'],
+            recipe.get('description', ''),
+            ingredients,
+            steps,
+            existing_steps=existing_beginner,
+            desired_count=10
+        )
+        if beginner_steps:
+            updates['steps_beginner'] = json.dumps(beginner_steps)
+    
+    # Advanced steps
+    existing_advanced = recipe.get('steps_advanced')
+    if not existing_advanced or len(existing_advanced) < 8:
+        advanced_steps = service.generate_advanced_steps(
+            recipe['id'],
+            recipe['name'],
+            recipe.get('description', ''),
+            ingredients,
+            steps,
+            existing_steps=existing_advanced,
+            desired_count=8
+        )
+        if advanced_steps:
+            updates['steps_advanced'] = json.dumps(advanced_steps)
+
+
+def _fix_steps_images(recipe: Dict, service: RecipeRegenerationService, tracker: RecipeRegenerationTracker, updates: Dict):
+    """Generate missing step images for beginner and advanced steps"""
+    recipe_id = recipe['id']
+    recipe_name = recipe['name']
+    
+    # Beginner step images
+    beginner_steps = _get_steps_from_recipe_or_updates(recipe, updates, 'steps_beginner')
+    if beginner_steps:
+        _generate_step_images_if_needed(
+            recipe_id, recipe_name, beginner_steps,
+            recipe.get('steps_beginner_images', []) or [],
+            "beginner", service, tracker, updates
+        )
+    
+    # Advanced step images
+    advanced_steps = _get_steps_from_recipe_or_updates(recipe, updates, 'steps_advanced')
+    if advanced_steps:
+        _generate_step_images_if_needed(
+            recipe_id, recipe_name, advanced_steps,
+            recipe.get('steps_advanced_images', []) or [],
+            "advanced", service, tracker, updates
+        )
+
+
+def _get_steps_from_recipe_or_updates(recipe: Dict, updates: Dict, key: str) -> Optional[List[str]]:
+    """Get steps from updates or recipe"""
+    if key in updates:
+        steps = updates[key]
+        return json.loads(steps) if isinstance(steps, str) else steps
+    return recipe.get(key)
+
+
+def _generate_step_images_if_needed(
+    recipe_id: int,
+    recipe_name: str,
+    steps: List[str],
+    existing_images: List[dict],
+    step_type: str,
+    service: RecipeRegenerationService,
+    tracker: RecipeRegenerationTracker,
+    updates: Dict
+):
+    """Generate step images if missing"""
+    existing_count = len(existing_images)
+    required_count = len(steps)
+    
+    if existing_count < required_count:
+        tracker.log(
+            f"{step_type.capitalize()} step images: have {existing_count}, need {required_count}. "
+            f"Generating {required_count - existing_count} missing images.",
+            "INFO",
+            recipe_id,
+            recipe_name,
+            operation=f"step_images_{step_type}"
+        )
+        
+        new_images = service.generate_step_images(
+            recipe_id, recipe_name, steps, existing_images, step_type=step_type
+        )
+        
+        if len(new_images) > existing_count:
+            updates[f'steps_{step_type}_images'] = json.dumps(new_images)
+            tracker.log(
+                f"Successfully generated {len(new_images) - existing_count} {step_type} step images. "
+                f"Total: {len(new_images)}/{required_count}",
+                "SUCCESS",
+                recipe_id,
+                recipe_name,
+                operation=f"step_images_{step_type}"
+            )
+    elif existing_count == required_count:
+        tracker.log(
+            f"{step_type.capitalize()} step images already complete ({existing_count}/{required_count}), skipping",
+            "INFO",
+            recipe_id,
+            recipe_name,
+            operation=f"step_images_{step_type}"
+        )
+
+
+def _update_recipe_in_db(recipe_id: int, recipe_name: str, updates: Dict, tracker: RecipeRegenerationTracker):
+    """Update recipe in database"""
+    conn = tracker._get_connection()
+    with conn.cursor() as cur:
+        # Build UPDATE query with JSONB casting
+        jsonb_columns = {
+            'steps_beginner', 'steps_advanced',
+            'step_image_urls', 'steps_beginner_images', 'steps_advanced_images',
+            'ingredient_image_urls'
+        }
+        set_parts = [f"{key} = %s::jsonb" if key in jsonb_columns else f"{key} = %s" 
+                     for key in updates.keys()]
+        set_clause = ', '.join(set_parts)
+        
+        values = list(updates.values()) + [recipe_id]
+        
+        cur.execute(f"UPDATE top_recipes SET {set_clause} WHERE id = %s", values)
+        conn.commit()
+        
+        # Verify
+        cur.execute("""
+            SELECT steps_beginner, steps_advanced 
+            FROM top_recipes 
+            WHERE id = %s
+        """, (recipe_id,))
+        result = cur.fetchone()
+        if result:
+            tracker.log(
+                f"Verification: steps_beginner has {len(result[0]) if result[0] else 0} steps, "
+                f"steps_advanced has {len(result[1]) if result[1] else 0} steps",
+                "INFO",
+                recipe_id,
+                recipe_name
+            )
+
+
+def _to_dict(obj) -> Dict:
+    """Convert dataclass/object to dict"""
+    from dataclasses import asdict, is_dataclass
+    
+    if is_dataclass(obj):
+        return asdict(obj)
+    elif isinstance(obj, dict):
+        return obj
+    else:
+        return obj.__dict__
+
+
+def _fetch_recipes_for_processing(
+    recipe_ids: Optional[List[int]] = None,
+    recipe_name: Optional[str] = None,
+    cuisine_filter: Optional[str] = None,
+    recipe_count: Optional[int] = None
+) -> List[Dict]:
+    """
+    Fetch recipes based on criteria
+    
+    Args:
+        recipe_ids: Specific recipe IDs
+        recipe_name: Recipe name to search for
+        cuisine_filter: Filter by cuisine/region
+        recipe_count: Limit number of recipes
+    
+    Returns:
+        List of recipe dictionaries
+    """
+    recipes = []
+    
+    if recipe_ids:
+        # Fetch specific recipes by ID
+        for rid in recipe_ids:
+            recipe = get_recipe_by_id(rid)
+            if recipe:
+                recipes.append(_to_dict(recipe))
+    
+    elif recipe_name:
+        # Search by recipe name
+        all_recipes_list, _ = get_top_recipes(limit=10000, detailed=True)
+        for r in all_recipes_list:
+            r_dict = _to_dict(r)
+            if r_dict['name'].lower() == recipe_name.lower():
+                recipes.append(r_dict)
+    
+    elif cuisine_filter:
+        # Filter by cuisine/region
+        all_recipes_list, _ = get_top_recipes(limit=10000, detailed=True)
+        for r in all_recipes_list:
+            r_dict = _to_dict(r)
+            if r_dict.get('region', '').lower() == cuisine_filter.lower():
+                recipes.append(r_dict)
+        if recipe_count:
+            recipes = recipes[:recipe_count]
+    
+    else:
+        # All recipes
+        all_recipes_list, _ = get_top_recipes(limit=10000, detailed=True)
+        recipes = [_to_dict(r) for r in all_recipes_list]
+        if recipe_count:
+            recipes = recipes[:recipe_count]
+    
+    return recipes
 
 
 def start_recipe_regeneration(
@@ -507,50 +543,10 @@ def start_recipe_regeneration(
     tracker = RecipeRegenerationTracker()
     
     try:
-        from dataclasses import asdict, is_dataclass
-        
         # Get recipes to process
-        if recipe_ids:
-            # Specific recipes
-            recipes = []
-            for rid in recipe_ids:
-                recipe = get_recipe_by_id(rid)
-                if recipe:
-                    # Convert dataclass to dict
-                    if is_dataclass(recipe):
-                        recipes.append(asdict(recipe))
-                    elif isinstance(recipe, dict):
-                        recipes.append(recipe)
-                    else:
-                        recipes.append(recipe.__dict__)
-        elif recipe_name:
-            # Single recipe by name
-            all_recipes_list, _ = get_top_recipes(limit=10000, detailed=True)
-            # Convert all to dicts
-            recipes = []
-            for r in all_recipes_list:
-                r_dict = asdict(r) if is_dataclass(r) else (r if isinstance(r, dict) else r.__dict__)
-                if r_dict['name'].lower() == recipe_name.lower():
-                    recipes.append(r_dict)
-        elif cuisine_filter:
-            # Filter by cuisine/region
-            all_recipes_list, _ = get_top_recipes(limit=10000, detailed=True)
-            recipes = []
-            for r in all_recipes_list:
-                r_dict = asdict(r) if is_dataclass(r) else (r if isinstance(r, dict) else r.__dict__)
-                if r_dict.get('region', '').lower() == cuisine_filter.lower():
-                    recipes.append(r_dict)
-            if recipe_count:
-                recipes = recipes[:recipe_count]
-        else:
-            # All recipes
-            all_recipes_list, _ = get_top_recipes(limit=10000, detailed=True)
-            recipes = []
-            for r in all_recipes_list:
-                r_dict = asdict(r) if is_dataclass(r) else (r if isinstance(r, dict) else r.__dict__)
-                recipes.append(r_dict)
-            if recipe_count:
-                recipes = recipes[:recipe_count]
+        recipes = _fetch_recipes_for_processing(
+            recipe_ids, recipe_name, cuisine_filter, recipe_count
+        )
         
         if not recipes:
             return {

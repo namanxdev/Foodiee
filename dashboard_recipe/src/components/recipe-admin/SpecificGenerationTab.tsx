@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { searchRecipes } from '@/services/recipeAdminAPI';
 import type { Recipe } from '@/types/recipeAdmin';
+import { API_CONFIG } from '@/constants';
 
 // Types for generation process
 interface GenerationLog {
@@ -99,7 +100,7 @@ export function SpecificGenerationTab() {
 
     try {
       // Start generation job
-      const response = await fetch('http://localhost:8000/api/recipe-admin/generate/create-new', {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/recipe-admin/generate/create-new`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -130,7 +131,7 @@ export function SpecificGenerationTab() {
       // Poll for progress
       const pollInterval = setInterval(async () => {
         try {
-          const statusResponse = await fetch(`http://localhost:8000/api/recipe-admin/jobs/${jobId}`, {
+          const statusResponse = await fetch(`${API_CONFIG.BASE_URL}/api/recipe-admin/jobs/${jobId}`, {
             headers: {
               'X-Admin-Email': localStorage.getItem('adminEmail') || '',
             },
@@ -212,7 +213,7 @@ export function SpecificGenerationTab() {
               // Fetch the created recipe
               try {
                 const recipeResponse = await fetch(
-                  `http://localhost:8000/api/recipe-admin/recipes/${recipeId}`,
+                  `${API_CONFIG.BASE_URL}/api/recipe-admin/recipes/${recipeId}`,
                   {
                     headers: {
                       'X-Admin-Email': localStorage.getItem('adminEmail') || '',
@@ -268,7 +269,7 @@ export function SpecificGenerationTab() {
     if (!generatedRecipe) return;
 
     try {
-      const response = await fetch('http://localhost:8000/api/recipe-admin/recipes', {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/recipe-admin/recipes`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
