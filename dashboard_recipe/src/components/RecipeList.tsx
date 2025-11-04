@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { FaClock, FaArrowLeft, FaChevronRight } from "react-icons/fa";
 import MarkdownRenderer from "./MarkdownRenderer";
+import { API_CONFIG } from "@/constants";
 
 interface RecipeListProps {
   recommendations: string;
@@ -37,7 +38,7 @@ export default function RecipeList({ recommendations, sessionId, onSelectRecipe,
     setSelectedRecipeName(recipeName);
 
     try {
-      const response = await fetch(`http://localhost:8000/api/recipe/details?session_id=${sessionId}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/recipe/details?session_id=${sessionId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recipe_name: recipeName }),

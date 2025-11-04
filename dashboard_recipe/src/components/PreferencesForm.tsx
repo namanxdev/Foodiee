@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { FaGlobe, FaUtensils, FaClock, FaAllergies, FaThumbsDown, FaShoppingBasket } from "react-icons/fa";
+import { API_CONFIG } from "@/constants";
 
 interface PreferencesFormProps {
   onSubmit: (sessionId: string, recommendations: string) => void;
@@ -35,7 +36,7 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8000/api/preferences", {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/preferences`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),

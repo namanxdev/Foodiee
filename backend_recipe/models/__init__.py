@@ -46,6 +46,20 @@ from .top_recipe import (
     UpdateFieldsRequest
 )
 
+# Image generation models
+from .image_generation import (
+    StartImageGenerationRequest,
+    StopImageGenerationRequest,
+    ImageGenerationJobModel,
+    ImageGenerationLogModel,
+    StartJobResponse,
+    StopJobResponse,
+    JobStatusResponse,
+    JobLogsResponse,
+    JobStatisticsResponse,
+    HealthCheckResponse
+)
+
 __all__ = [
     # Recipe models
     "UserPreferencesRequest",
@@ -73,5 +87,17 @@ __all__ = [
     "AvailableFiltersResponse",
     "CreateRecipeRequest",
     "UpdateRecipeRequest",
-    "UpdateFieldsRequest"
+    "UpdateFieldsRequest",
+    
+    # Image generation models
+    "StartImageGenerationRequest",
+    "StopImageGenerationRequest",
+    "ImageGenerationJobModel",
+    "ImageGenerationLogModel",
+    "StartJobResponse",
+    "StopJobResponse",
+    "JobStatusResponse",
+    "JobLogsResponse",
+    "JobStatisticsResponse",
+    "HealthCheckResponse"
 ]

@@ -19,7 +19,6 @@ class BaseRecommender:
         """Initialize base recommender with common components"""
         # Prompts
         self.alternative_prompt = RecipePrompts.get_alternative_prompt()
-        self.sd_image_prompt = RecipePrompts.get_image_prompt()
         
         # Image generator (lazy loaded)
         self._image_generator = None
@@ -46,7 +45,7 @@ class BaseRecommender:
     def image_generator(self):
         """Get or create image generator instance"""
         if self._image_generator is None:
-            self._image_generator = ImageGenerator(self.llm, self.sd_image_prompt)
+            self._image_generator = ImageGenerator(self.llm)
         return self._image_generator
     
     def generate_image_with_gemini(
@@ -64,32 +63,7 @@ class BaseRecommender:
         Returns:
             Tuple of (base64_image_string, prompt_used)
         """
-        return self.image_generator.generate_image(
-            recipe_name, 
-            step_description, 
-            backend="gemini"
-        )
-    
-    def generate_image_with_stable_diffusion(
-        self, 
-        recipe_name: str, 
-        step_description: str
-    ) -> Tuple[Optional[str], str]:
-        """
-        Generate image using Stable Diffusion (local)
-        
-        Args:
-            recipe_name: Name of the recipe
-            step_description: Description of the cooking step
-            
-        Returns:
-            Tuple of (base64_image_string, prompt_used)
-        """
-        return self.image_generator.generate_image(
-            recipe_name, 
-            step_description, 
-            backend="stable_diffusion"
-        )
+        return self.image_generator.generate_image(recipe_name, step_description)
     
     def generate_image_prompt(
         self, 

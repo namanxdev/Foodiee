@@ -69,7 +69,7 @@ export default function RecipeFiltersComponent({ filters, onChange }: RecipeFilt
     filters.search;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6">
+    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 mb-6">
       {/* Search Bar */}
       <div className="mb-4">
         <div className="relative">

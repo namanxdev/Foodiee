@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { FaArrowLeft, FaArrowRight, FaImage, FaCheckCircle, FaQuestionCircle } from "react-icons/fa";
 import MarkdownRenderer from "./MarkdownRenderer";
+import { API_CONFIG } from "@/constants";
 
 interface CookingStepsProps {
   sessionId: string;
@@ -26,7 +27,7 @@ export default function CookingSteps({ sessionId, recipeName, steps, onFinish, o
     setImageData(null);
 
     try {
-      const response = await fetch(`http://localhost:8000/api/step/next?session_id=${sessionId}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/step/next?session_id=${sessionId}`, {
         method: "POST",
       });
 
@@ -44,7 +45,7 @@ export default function CookingSteps({ sessionId, recipeName, steps, onFinish, o
     setImageLoading(true);
 
     try {
-      const response = await fetch(`http://localhost:8000/api/step/gemini_image?session_id=${sessionId}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/step/gemini_image?session_id=${sessionId}`, {
         method: "POST",
       });
 
@@ -64,7 +65,7 @@ export default function CookingSteps({ sessionId, recipeName, steps, onFinish, o
     setLoading(true);
 
     try {
-      const response = await fetch(`http://localhost:8000/api/ingredients/alternatives?session_id=${sessionId}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/ingredients/alternatives?session_id=${sessionId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -30,11 +30,9 @@ llm: Optional[ChatGoogleGenerativeAI] = None
 vision_llm: Optional[ChatGoogleGenerativeAI] = None
 embeddings: Optional[GoogleGenerativeAIEmbeddings] = None
 recipe_vector_store: Optional[PGVector] = None
-stable_diffusion_pipe = None
-IMAGE_GENERATION_ENABLED = False
 connection_string: Optional[str] = None
 
-# Recipe Database (NEW - for scaling)
+# Recipe Database (for scaling)
 recipe_db = None
 
 # Store user sessions (in production, use Redis or database)
@@ -54,12 +52,12 @@ def initialize_ai_models():
     
     # Initialize Gemini models
     llm = ChatGoogleGenerativeAI(
-        model="gemini-2.0-flash-exp",
+        model=os.environ.get("GEMINI_TEXT_MODEL", "gemini-2.0-flash-lite"),
         google_api_key=GOOGLE_API_KEY
     )
     
     vision_llm = ChatGoogleGenerativeAI(
-        model="gemini-2.0-flash-exp",
+        model=os.environ.get("GEMINI_VISION_MODEL", "gemini-2.0-flash-lite"),
         google_api_key=GOOGLE_API_KEY
     )
     
@@ -235,67 +233,6 @@ def load_recipe_vector_store(pdf_directory="../Pdfs"):
     except Exception as e:
         print(f"   ❌ Error adding documents: {e}")
 
-def initialize_image_generation():
-    """Initialize Stable Diffusion for image generation"""
-    global IMAGE_GENERATION_ENABLED, stable_diffusion_pipe
-    
-    try:
-        import torch
-        import platform
-        from diffusers import StableDiffusionPipeline
-        
-        # Detect device
-        os_name = platform.system()
-        device = None
-        dtype = torch.float32
-        
-        if os_name == "Darwin" and torch.backends.mps.is_available():
-            # macOS with Metal GPU
-            device = "mps"
-            print("🍎 macOS detected - Using Apple Metal Performance Shaders (MPS)")
-            print("   • GPU acceleration enabled")
-            
-        elif torch.cuda.is_available():
-            # Linux/Windows with NVIDIA GPU
-            device = "cuda"
-            dtype = torch.float16
-            print(f"🎮 NVIDIA GPU detected - Using CUDA")
-            print(f"   • GPU: {torch.cuda.get_device_name(0)}")
-            print(f"   • VRAM: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.2f} GB")
-            
-        else:
-            print("⚠️  No GPU detected. Image generation will use CPU (very slow).")
-            print("   Recommendation: Image generation requires GPU for reasonable performance")
-            device = "cpu"
-        
-        print(f"\n📥 Loading Stable Diffusion model...")
-        print(f"   (First time: ~4-5GB download)")
-        
-        model_id = "runwayml/stable-diffusion-v1-5"
-        
-        stable_diffusion_pipe = StableDiffusionPipeline.from_pretrained(
-            model_id,
-            torch_dtype=dtype,
-            safety_checker=None,
-            requires_safety_checker=False
-        )
-        
-        stable_diffusion_pipe = stable_diffusion_pipe.to(device)
-        
-        # Enable memory optimizations
-        if device in ["cuda", "mps"]:
-            stable_diffusion_pipe.enable_attention_slicing()
-            if device == "cuda":
-                stable_diffusion_pipe.enable_vae_slicing()
-            print(f"🔧 Memory optimizations enabled for {device}")
-        
-        IMAGE_GENERATION_ENABLED = True
-        print(f"✅ Image generation enabled with {device}!")
-        
-    except ImportError:
-        print("⚠️  PyTorch/Diffusers not installed. Image generation disabled.")
-    except Exception as e:
-        print(f"⚠️  Could not initialize image generation: {e}")
 
 def initialize_recipe_database():
     """Initialize recipe database for scaling"""
@@ -334,15 +271,14 @@ def initialize_all():
     
     try:
         initialize_ai_models()
-        initialize_recipe_database()  # NEW: Initialize recipe database
+        initialize_recipe_database()
         load_recipe_vector_store()
-        initialize_image_generation()
         
         print("\n" + "="*60)
         print("✅ All components initialized!")
         print(f"✅ RAG Status: {'Enabled' if recipe_vector_store else 'Disabled'}")
         print(f"✅ Recipe DB: {'Enabled' if recipe_db else 'Disabled (PDF-only mode)'}")
-        print(f"✅ Image Generation: {'GPU-Enabled' if IMAGE_GENERATION_ENABLED else 'Text-Only'}")
+        print(f"✅ Image Generation: Gemini API")
         print("="*60)
     except Exception as e:
         print(f"❌ Initialization error: {e}")
@@ -363,14 +299,6 @@ def get_vision_llm():
 def get_recipe_vector_store():
     """Get the current recipe vector store instance"""
     return recipe_vector_store
-
-def get_image_generation_enabled():
-    """Get the current image generation status"""
-    return IMAGE_GENERATION_ENABLED
-
-def get_stable_diffusion_pipe():
-    """Get the current stable diffusion pipeline"""
-    return stable_diffusion_pipe
 
 def get_recipe_db():
     """Get the current recipe database instance"""

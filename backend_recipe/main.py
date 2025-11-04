@@ -8,8 +8,7 @@ import config  # Import module to access variables dynamically
 # Import modularized components
 from config import (
     initialize_all, 
-    recipe_vector_store, 
-    IMAGE_GENERATION_ENABLED,
+    recipe_vector_store
 )
 from core import RecipeRecommender
 from api import (
@@ -20,6 +19,8 @@ from api import (
     users_router,
     top_recipes_router
 )
+from api.image_generation_admin import router as image_generation_admin_router
+from api.recipe_admin import router as recipe_admin_router
 from api.preferences import set_recommender as set_preferences_recommender
 from api.recipes import set_recommender as set_recipes_recommender
 from api.images import set_recommender as set_images_recommender
@@ -37,7 +38,7 @@ app = FastAPI(
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -88,7 +89,7 @@ async def startup_event():
         print(f"✅ Database RAG: {'Enabled (727 recipes with embeddings)' if config.recipe_db else 'Disabled'}")
         print(f"✅ PDF RAG: {'Enabled' if recipe_vector_store else 'Disabled (not needed with Database RAG)'}")
         print(f"✅ Recipe DB: {'Enabled' if config.recipe_db else 'Disabled'}")
-        print(f"✅ Image Generation: {'GPU-Enabled' if IMAGE_GENERATION_ENABLED else 'Text-Only'}")
+        # print(f"✅ Image Generation: {'GPU-Enabled' if IMAGE_GENERATION_ENABLED else 'Text-Only'}")
     except Exception as e:
         print(f"❌ Startup error: {e}")
         import traceback
@@ -105,6 +106,8 @@ app.include_router(sessions_router)
 app.include_router(images_router)
 app.include_router(users_router)
 app.include_router(top_recipes_router)
+app.include_router(image_generation_admin_router)
+app.include_router(recipe_admin_router)
 
 # ============================================================
 # Basic Routes
@@ -128,7 +131,7 @@ async def root():
         "database_rag_enabled": config.recipe_db is not None,
         "pdf_rag_enabled": recipe_vector_store is not None,
         "recipe_count": recipe_count,
-        "image_generation": "gpu" if IMAGE_GENERATION_ENABLED else "text_only",
+        # "image_generation": "gpu" if IMAGE_GENERATION_ENABLED else "text_only",
         "mode": "optimized" if config.recipe_db else "traditional",
         "supports_concurrent_users": 100 if config.recipe_db else 10
     }

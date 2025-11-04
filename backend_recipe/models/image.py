@@ -17,4 +17,4 @@ class ImageGenerationResponse(BaseModel):
     image_data: Optional[str] = Field(None, description="Base64 encoded image data")
     description: str = Field(..., description="Description of the generated image")
     success: bool = Field(default=True, description="Whether generation was successful")
-    generation_type: str = Field(..., description="Type of generation: 'gemini', 'stable_diffusion', 'text_only'")
+    generation_type: str = Field(..., description="Type of generation: 'gemini', 'text_only'")
