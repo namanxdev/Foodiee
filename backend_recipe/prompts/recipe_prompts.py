@@ -116,19 +116,23 @@ Keep suggestions practical and commonly available.""")
         """Stable Diffusion image generation prompt"""
         return ChatPromptTemplate.from_messages([
             ("system", "You are an expert at creating concise, effective image generation prompts for food photography."),
-            ("user", """Create a SHORT image generation prompt (max 60 words) for Stable Diffusion:
+            ("user", """Create a SHORT image generation prompt (max 75 words) for Stable Diffusion:
 
 Recipe: {recipe_name}
 Step: {step_description}
 
-Make it:
+CRITICAL REQUIREMENTS (MUST INCLUDE):
+- HORIZONTAL landscape orientation (1024x680 aspect ratio)
+- ABSOLUTELY NO TEXT, labels, numbers, or watermarks
 - Professional food photography style
 - Clear and specific about the cooking action
 - Include lighting, angle, and composition details
 - Photorealistic, appetizing, high quality
 - NO explanations, just the prompt
 
-Example: "Professional overhead shot of golden pakoras frying in hot oil, bubbles rising, warm kitchen lighting, shallow depth of field, steam visible, highly detailed, food photography"
+Example: "Professional overhead shot of golden pakoras frying in hot oil, bubbles rising, warm kitchen lighting, shallow depth of field, steam visible, highly detailed, food photography, horizontal landscape format, no text, no labels"
+
+IMPORTANT: Always specify "horizontal landscape, no text, no labels" in your prompt.
 
 Your prompt:""")
         ])

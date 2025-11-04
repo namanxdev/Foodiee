@@ -109,21 +109,19 @@ class S3Service:
         print(f"   ✅ Uploaded main image: {public_url}")
         return public_url
     
-    def upload_recipe_step_image(
+    def upload_recipe_ingredients_image(
         self,
         recipe_id: int,
         recipe_name: str,
-        step_index: int,
         image_base64: str,
         archive_existing: bool = True
     ) -> str:
         """
-        Upload step image to S3
+        Upload ingredients image to S3
         
         Args:
             recipe_id: Recipe ID
             recipe_name: Recipe name (will be sanitized)
-            step_index: Step number (1-based)
             image_base64: Base64 encoded image string
             archive_existing: If True, move existing image to archive/ folder
             
@@ -133,7 +131,7 @@ class S3Service:
         # Generate S3 key
         sanitized_name = self._sanitize_recipe_name(recipe_name)
         folder_name = f"{sanitized_name}_{recipe_id}"
-        s3_key = f"{self.base_path}/{folder_name}/{sanitized_name}_step{step_index}.jpg"
+        s3_key = f"{self.base_path}/{folder_name}/{sanitized_name}_ingredients.jpg"
         
         # Archive existing image if requested
         if archive_existing:
@@ -142,7 +140,52 @@ class S3Service:
         # Upload to S3
         public_url = self._upload_base64_to_s3(image_base64, s3_key)
         
-        print(f"   ✅ Uploaded step {step_index} image: {public_url}")
+        print(f"   ✅ Uploaded ingredients image: {public_url}")
+        return public_url
+    
+    def upload_recipe_step_image(
+        self,
+        recipe_id: int,
+        recipe_name: str,
+        step_index: int,
+        image_base64: str,
+        archive_existing: bool = True,
+        step_type: str = "original"
+    ) -> str:
+        """
+        Upload step image to S3 with support for beginner/advanced variants
+        
+        Args:
+            recipe_id: Recipe ID
+            recipe_name: Recipe name (will be sanitized)
+            step_index: Step number (1-based)
+            image_base64: Base64 encoded image string
+            archive_existing: If True, move existing image to archive/ folder
+            step_type: Type of step image - 'original', 'beginner', or 'advanced'
+            
+        Returns:
+            Public S3 URL of uploaded image
+        """
+        # Generate S3 key based on step_type
+        sanitized_name = self._sanitize_recipe_name(recipe_name)
+        folder_name = f"{sanitized_name}_{recipe_id}"
+        
+        if step_type == "beginner":
+            s3_key = f"{self.base_path}/{folder_name}/steps_beginner/step_{step_index}.jpg"
+        elif step_type == "advanced":
+            s3_key = f"{self.base_path}/{folder_name}/steps_advanced/step_{step_index}.jpg"
+        else:  # original or default
+            s3_key = f"{self.base_path}/{folder_name}/{sanitized_name}_step{step_index}.jpg"
+        
+        # Archive existing image if requested
+        if archive_existing:
+            self._archive_existing_image(s3_key)
+        
+        # Upload to S3
+        public_url = self._upload_base64_to_s3(image_base64, s3_key)
+        
+        step_type_label = f" ({step_type})" if step_type != "original" else ""
+        print(f"   ✅ Uploaded step {step_index}{step_type_label} image: {public_url}")
         return public_url
     
     # ========================================================================

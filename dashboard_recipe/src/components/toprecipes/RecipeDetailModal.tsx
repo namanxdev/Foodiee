@@ -74,6 +74,9 @@ export default function RecipeDetailModal({ recipeId, onClose }: RecipeDetailMod
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-6">
               <h2 className="text-3xl font-bold text-white mb-2">{recipe.name}</h2>
               <div className="flex flex-wrap gap-2">
+                <span className="px-3 py-1 bg-gray-800/70 text-gray-300 rounded-full text-xs font-mono border border-gray-600">
+                  ID: #{recipe.id}
+                </span>
                 <span className={`px-3 py-1 rounded-full text-sm font-bold ${getDifficultyColor(recipe.difficulty)}`}>
                   {recipe.difficulty}
                 </span>
@@ -111,19 +114,13 @@ export default function RecipeDetailModal({ recipeId, onClose }: RecipeDetailMod
               <p className="text-gray-600 dark:text-gray-400 mb-6">{recipe.description}</p>
 
               {/* Quick Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
                 <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg text-center">
                   <FaClock className="text-orange-500 text-2xl mx-auto mb-2" />
                   <div className="text-sm text-gray-600 dark:text-gray-400">Total Time</div>
                   <div className="text-lg font-bold text-gray-800 dark:text-white">
                     {formatTime(recipe.total_time_minutes)}
                   </div>
-                </div>
-                
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-center">
-                  <FaUsers className="text-blue-500 text-2xl mx-auto mb-2" />
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Servings</div>
-                  <div className="text-lg font-bold text-gray-800 dark:text-white">{recipe.servings}</div>
                 </div>
                 
                 <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg text-center">

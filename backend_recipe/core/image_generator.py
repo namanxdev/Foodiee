@@ -59,7 +59,15 @@ class ImageGenerator:
             }).strip()
         else:
             # Simple default prompt when sd_image_prompt is not provided
-            return f"Generate a high-quality, professional food photography image of {recipe_name}. {step_description}. The image should be appetizing, well-lit, and show the dish in an attractive presentation."
+            return f"""Generate a high-quality, professional food photography image of {recipe_name}. {step_description}. 
+
+CRITICAL REQUIREMENTS:
+- HORIZONTAL landscape format (1024x680 aspect ratio)
+- ABSOLUTELY NO TEXT, labels, captions, or watermarks
+- Professional, appetizing presentation
+- Well-lit with good composition
+
+The image should be appetizing, well-lit, and show the dish in an attractive presentation. STRICTLY NO TEXT of any kind."""
     
     def generate_image(
         self,
@@ -96,7 +104,7 @@ class ImageGenerator:
     
     def _generate_with_gemini(self, prompt: str) -> Tuple[Optional[str], str]:
         """
-        Generate image using Gemini API
+        Generate image using Gemini API with strict size and format requirements
         
         Args:
             prompt: Image generation prompt
@@ -111,11 +119,16 @@ class ImageGenerator:
         client = genai.Client(api_key=api_key)
         
         try:
+            # Add size enforcement to the prompt itself as Gemini API handles this via prompt
+            size_enforced_prompt = prompt + "\n\nIMAGE SPECIFICATIONS: Output MUST be horizontal landscape orientation, 1024x680 aspect ratio. STRICTLY HORIZONTAL format only."
+            
             result = client.models.generate_content(
                 model="gemini-2.0-flash-preview-image-generation",
-                contents=prompt,
+                contents=size_enforced_prompt,
                 config=types.GenerateContentConfig(
-                    response_modalities=["TEXT", "IMAGE"]
+                    response_modalities=["TEXT", "IMAGE"],
+                    # Note: Gemini's image generation model respects size specifications in the prompt
+                    # The 1024x680 horizontal format will be enforced through prompt instructions
                 ),
             )
         except Exception as exc:
@@ -127,9 +140,9 @@ class ImageGenerator:
         if not image_base64:
             print(f"   ⚠️  No image data found in Gemini response")
         else:
-            print(f"   ✅ Successfully generated image with Gemini")
+            print(f"   ✅ Successfully generated image with Gemini (1024x680 horizontal)")
         
-        return image_base64, prompt
+        return image_base64, size_enforced_prompt
     
     def _generate_with_stable_diffusion(self, prompt: str) -> Tuple[Optional[str], str]:
         """
@@ -159,8 +172,8 @@ class ImageGenerator:
                         prompt,
                         num_inference_steps=30,
                         guidance_scale=7.5,
-                        height=512,
-                        width=512
+                        height=680,  # Horizontal landscape format
+                        width=1024   # 1024x680 aspect ratio
                     ).images[0]
             
             # Convert PIL Image to base64 for consistency

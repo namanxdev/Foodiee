@@ -329,7 +329,8 @@ def process_single_recipe(
                         recipe_id,
                         recipe_name,
                         beginner_steps,
-                        existing_beginner_images
+                        existing_beginner_images,
+                        step_type="beginner"
                     )
                     
                     if len(new_beginner_images) > existing_count:
@@ -379,7 +380,8 @@ def process_single_recipe(
                         recipe_id,
                         recipe_name,
                         advanced_steps,
-                        existing_advanced_images
+                        existing_advanced_images,
+                        step_type="advanced"
                     )
                     
                     if len(new_advanced_images) > existing_count:
@@ -679,10 +681,25 @@ def start_recipe_regeneration(
 
 
 def get_job_status(job_id: int) -> Optional[Dict]:
-    """Get job status"""
+    """Get job status with logs"""
     tracker = RecipeRegenerationTracker(job_id)
     try:
-        return tracker.get_job_status()
+        job = tracker.get_job_status()
+        if not job:
+            return None
+        
+        # Add logs to job status
+        conn = tracker._get_connection()
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT * FROM recipe_regeneration_logs
+                WHERE job_id = %s
+                ORDER BY created_at ASC
+                LIMIT 100
+            """, (job_id,))
+            job['logs'] = cur.fetchall()
+        
+        return job
     finally:
         tracker.close()
 

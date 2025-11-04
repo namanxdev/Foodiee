@@ -93,13 +93,18 @@ export default function RecipeCard({ recipe, onClick }: RecipeCardProps) {
           </div>
           
           <div className="flex items-center gap-1">
-            <FaUsers className="text-blue-500" />
-            <span>{recipe.servings} servings</span>
+            <FaFire className="text-red-500" />
+            <span>{recipe.calories} cal</span>
           </div>
           
           <div className="flex items-center gap-1">
-            <FaFire className="text-red-500" />
-            <span>{recipe.calories} cal</span>
+            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+              recipe.difficulty === 'Easy' ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' :
+              recipe.difficulty === 'Medium' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200' :
+              'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
+            }`}>
+              {recipe.difficulty}
+            </span>
           </div>
         </div>
       </div>

@@ -280,8 +280,9 @@ class RecipeRegenerationService:
         recipe_id: int,
         recipe_name: str,
         steps: List[str],
-        existing_step_images: List[str]
-    ) -> List[str]:
+        existing_step_images: List[dict],
+        step_type: str = "original"
+    ) -> List[dict]:
         """
         Generate step images with resume capability
         Only generates missing images (when len(steps) > len(step_images))
@@ -290,10 +291,12 @@ class RecipeRegenerationService:
             recipe_id: Recipe ID
             recipe_name: Recipe name
             steps: List of step descriptions
-            existing_step_images: Existing step image URLs
+            existing_step_images: List of existing step image dicts [{url, step_index, generated_at}]
+            step_type: Type of step ('original', 'beginner', 'advanced') for S3 folder organization
             
         Returns:
-            Complete list of step image URLs (existing + newly generated)
+            Complete list of step image dicts (existing + newly generated)
+            Format: [{url: str, step_index: int, generated_at: str}]
         """
         # Check if we need to generate more images
         existing_count = len(existing_step_images) if existing_step_images else 0
@@ -319,7 +322,7 @@ class RecipeRegenerationService:
         )
         
         try:
-            new_urls = list(existing_step_images) if existing_step_images else []
+            new_step_images = list(existing_step_images) if existing_step_images else []
             
             # Generate missing step images (RESUME LOGIC HERE)
             for step_idx in range(existing_count, total_steps):
@@ -337,43 +340,51 @@ class RecipeRegenerationService:
                     return image_base64
                 
                 self.tracker.log(
-                    f"Generating step {step_num}/{total_steps} image",
+                    f"Generating step {step_num}/{total_steps} image ({step_type})",
                     "INFO",
                     recipe_id,
                     recipe_name,
                     operation="steps_images",
-                    metadata={"step": step_num, "prompt": prompt}
+                    metadata={"step": step_num, "step_type": step_type, "prompt": prompt}
                 )
                 
                 image_base64 = self.retry_with_backoff(generate_step_image)
                 
-                # Upload to S3
+                # Upload to S3 with step_type
                 def upload_step_to_s3():
                     return self.s3_service.upload_recipe_step_image(
                         recipe_id=recipe_id,
                         recipe_name=recipe_name,
                         step_index=step_num,
                         image_base64=image_base64,
-                        archive_existing=True
+                        archive_existing=True,
+                        step_type=step_type
                     )
                 
                 s3_url = self.retry_with_backoff(upload_step_to_s3, max_retries=3, initial_delay=5)
-                new_urls.append(s3_url)
+                
+                # Create step image dict with metadata
+                step_image_dict = {
+                    "url": s3_url,
+                    "step_index": step_idx,  # 0-based index
+                    "generated_at": datetime.now().isoformat()
+                }
+                new_step_images.append(step_image_dict)
                 
                 self.tracker.log(
-                    f"Successfully generated step {step_num}/{total_steps} image",
+                    f"Successfully generated step {step_num}/{total_steps} image ({step_type})",
                     "SUCCESS",
                     recipe_id,
                     recipe_name,
                     operation="steps_images",
-                    metadata={"step": step_num, "s3_url": s3_url}
+                    metadata={"step": step_num, "step_type": step_type, "s3_url": s3_url}
                 )
                 
                 # Rate limiting: 2 second delay between generations
                 if step_num < total_steps:
                     time.sleep(2)
             
-            return new_urls
+            return new_step_images
             
         except Exception as e:
             error_msg = str(e)

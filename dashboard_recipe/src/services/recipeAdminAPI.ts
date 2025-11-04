@@ -112,6 +112,14 @@ export const searchRecipes = async (query: string): Promise<SearchRecipesRespons
   return handleResponse<SearchRecipesResponse>(response);
 };
 
+export const deleteRecipe = async (recipeId: number): Promise<{ success: boolean; message: string }> => {
+  const response = await fetch(`${API_BASE_URL}/recipes/${recipeId}`, {
+    method: 'DELETE',
+    headers: getHeaders(),
+  });
+  return handleResponse<{ success: boolean; message: string }>(response);
+};
+
 // ============================================================================
 // Generation Endpoints
 // ============================================================================

@@ -147,9 +147,10 @@ def generate_step_images_with_retry(
     recipe_id: int,
     recipe_name: str,
     steps: List[str],
-    existing_step_images: List[str],
-    tracker: ProgressTracker
-) -> List[str]:
+    existing_step_images: List[dict],
+    tracker: ProgressTracker,
+    step_type: str = "original"
+) -> List[dict]:
     """
     Generate step images with cumulative context
     Only generates missing images (when steps.length > step_images.length)
@@ -158,11 +159,13 @@ def generate_step_images_with_retry(
         recipe_id: Recipe ID
         recipe_name: Recipe name
         steps: List of step descriptions
-        existing_step_images: Existing step image URLs
+        existing_step_images: List of existing step image dicts [{url, step_index, generated_at}]
         tracker: Progress tracker for logging
+        step_type: Type of step ('original', 'beginner', 'advanced')
         
     Returns:
-        Complete list of step image URLs (existing + newly generated)
+        Complete list of step image dicts (existing + newly generated)
+        Format: [{url: str, step_index: int, generated_at: str}]
     """
     from core.image_generator import ImageGenerator
     from config import llm
@@ -191,7 +194,7 @@ def generate_step_images_with_retry(
         # Initialize image generator (sd_image_prompt is optional for Gemini)
         image_gen = ImageGenerator(llm)
         s3_service = get_s3_service()
-        new_urls = list(existing_step_images)  # Copy existing URLs
+        new_step_images = list(existing_step_images)  # Copy existing step images
         
         # Generate missing step images
         for step_idx in range(existing_count, total_steps):
@@ -212,9 +215,17 @@ Current step (Step {step_num} of {total_steps}):
 Context (what has been done so far):
 {cumulative_context}
 
+CRITICAL REQUIREMENTS (STRICTLY ENFORCE):
+1. IMAGE SIZE & ORIENTATION: MUST be HORIZONTAL format, aspect ratio 1024x680 pixels (landscape orientation)
+2. NO TEXT RULE: ABSOLUTELY NO text, step numbers, labels, captions, watermarks, or any written elements
+
 Style: Clear, instructional cooking photo showing the specific action or state at this step.
 Focus: Show exactly what is described in Step {step_num}, NOT the final dish.
-Composition: Clean workspace, visible ingredients/tools, mid-cooking process."""
+Composition: Clean workspace, visible ingredients/tools, mid-cooking process, HORIZONTAL framing.
+
+STRICTLY FORBIDDEN: Any text, numbers, labels, overlays, watermarks, or written elements of any kind.
+
+Output: Horizontal landscape image (1024x680), completely text-free."""
             
             # Generate image
             def generate_step_image():
@@ -224,7 +235,7 @@ Composition: Clean workspace, visible ingredients/tools, mid-cooking process."""
                 return image_base64
             
             tracker.log(
-                f"Generating step {step_num}/{total_steps} image",
+                f"Generating step {step_num}/{total_steps} image ({step_type})",
                 "INFO",
                 recipe_id,
                 recipe_name
@@ -232,32 +243,41 @@ Composition: Clean workspace, visible ingredients/tools, mid-cooking process."""
             
             image_base64 = retry_with_backoff(generate_step_image, max_retries=5, initial_delay=15)
             
-            # Upload to S3
+            # Upload to S3 with step_type
             def upload_step_to_s3():
                 return s3_service.upload_recipe_step_image(
                     recipe_id=recipe_id,
                     recipe_name=recipe_name,
                     step_index=step_num,
                     image_base64=image_base64,
-                    archive_existing=True
+                    archive_existing=True,
+                    step_type=step_type
                 )
             
             s3_url = retry_with_backoff(upload_step_to_s3, max_retries=3, initial_delay=5)
-            new_urls.append(s3_url)
+            
+            # Create step image dict with metadata
+            from datetime import datetime
+            step_image_dict = {
+                "url": s3_url,
+                "step_index": step_idx,  # 0-based index
+                "generated_at": datetime.now().isoformat()
+            }
+            new_step_images.append(step_image_dict)
             
             tracker.log(
-                f"Successfully generated step {step_num}/{total_steps} image",
+                f"Successfully generated step {step_num}/{total_steps} image ({step_type})",
                 "SUCCESS",
                 recipe_id,
                 recipe_name,
-                metadata={"step": step_num, "s3_url": s3_url}
+                metadata={"step": step_num, "step_type": step_type, "s3_url": s3_url}
             )
             
             # Rate limiting: 2 second delay between generations
             if step_num < total_steps:
                 time.sleep(2)
         
-        return new_urls
+        return new_step_images
         
     except Exception as e:
         error_msg = str(e)
@@ -415,19 +435,35 @@ def start_batch_image_generation(
                         else:
                             failed += 1
                 
-                # Generate step images
+                # Generate step images (using new format)
                 if image_type in ["steps", "all"]:
-                    step_urls = generate_step_images_with_retry(
+                    # Convert old format to new if needed
+                    existing_step_images = []
+                    if recipe.step_image_urls:
+                        if isinstance(recipe.step_image_urls, list) and len(recipe.step_image_urls) > 0:
+                            if isinstance(recipe.step_image_urls[0], str):
+                                # Old format: convert to new format
+                                from datetime import datetime
+                                existing_step_images = [
+                                    {"url": url, "step_index": idx, "generated_at": datetime.now().isoformat()}
+                                    for idx, url in enumerate(recipe.step_image_urls)
+                                ]
+                            else:
+                                # Already new format
+                                existing_step_images = recipe.step_image_urls
+                    
+                    step_images = generate_step_images_with_retry(
                         recipe.id,
                         recipe.name,
                         recipe.steps,
-                        recipe.step_image_urls,
-                        tracker
+                        existing_step_images,
+                        tracker,
+                        step_type="original"
                     )
                     
                     # Update database if new images were generated
-                    if len(step_urls) > len(recipe.step_image_urls):
-                        update_recipe(recipe_id=recipe.id, step_image_urls=step_urls)
+                    if len(step_images) > len(existing_step_images):
+                        update_recipe(recipe_id=recipe.id, step_image_urls=step_images)
                         completed += 1
                 
                 # Update progress

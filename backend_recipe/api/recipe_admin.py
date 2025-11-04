@@ -11,6 +11,7 @@ Admin endpoints for recipe management including:
 """
 
 import threading
+import traceback
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel
@@ -95,6 +96,16 @@ class ValidationRequest(BaseModel):
     fix_steps_images: bool = False
     fix_steps_text: bool = False
     fix_ingredients_text: bool = False
+
+
+class CreateNewRecipeRequest(BaseModel):
+    """Request model for creating a new recipe from scratch"""
+    dish_name: str
+    region: str
+    # Image generation options (all default to True)
+    generate_main_image: bool = True
+    generate_ingredients_image: bool = True
+    generate_step_images: bool = True
 
 
 # ============================================================================
@@ -209,6 +220,89 @@ def get_recipe(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/recipes")
+def create_recipe_endpoint(
+    recipe_data: dict,
+    admin_email: str = Header(None, alias="X-Admin-Email")
+):
+    """Create a new recipe in the database"""
+    verify_admin(admin_email)
+    
+    try:
+        import psycopg
+        from dotenv import load_dotenv
+        import os
+        import json
+        from datetime import datetime
+        
+        load_dotenv()
+        
+        # Get Supabase connection
+        supabase_url = os.environ.get('SUPABASE_OG_URL')
+        if not supabase_url:
+            raise HTTPException(status_code=500, detail="Database configuration error")
+        
+        conn = psycopg.connect(supabase_url)
+        
+        # Extract fields from recipe_data
+        name = recipe_data.get('name')
+        if not name:
+            raise HTTPException(status_code=400, detail="Recipe name is required")
+        
+        description = recipe_data.get('description')
+        region = recipe_data.get('region')
+        difficulty = recipe_data.get('difficulty', 'medium')
+        ingredients = recipe_data.get('ingredients', [])
+        ingredients_image = recipe_data.get('ingredients_image')
+        steps_beginner = recipe_data.get('steps_beginner', [])
+        steps_advanced = recipe_data.get('steps_advanced', [])
+        steps_beginner_images = recipe_data.get('steps_beginner_images', [])
+        steps_advanced_images = recipe_data.get('steps_advanced_images', [])
+        image_url = recipe_data.get('image_url')
+        validation_status = recipe_data.get('validation_status', 'pending')
+        
+        # Insert into database
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO top_recipes (
+                    name, description, region, difficulty,
+                    ingredients, ingredients_image,
+                    steps_beginner, steps_advanced,
+                    steps_beginner_images, steps_advanced_images,
+                    image_url, validation_status,
+                    source, created_at
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                )
+                RETURNING id
+            """, (
+                name, description, region, difficulty,
+                json.dumps(ingredients), ingredients_image,
+                json.dumps(steps_beginner), json.dumps(steps_advanced),
+                json.dumps(steps_beginner_images), json.dumps(steps_advanced_images),
+                image_url, validation_status,
+                'admin_generated', datetime.now().isoformat()
+            ))
+            
+            result = cur.fetchone()
+            recipe_id = result[0] if result else None
+            conn.commit()
+        
+        conn.close()
+        
+        return {
+            "success": True,
+            "message": f"Recipe created successfully with ID: {recipe_id}",
+            "recipe_id": recipe_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.put("/recipes/{recipe_id}")
 def update_recipe_endpoint(
     recipe_id: int,
@@ -256,6 +350,48 @@ def update_recipe_endpoint(
             "success": True,
             "message": "Recipe updated successfully",
             "recipe": recipe_dict
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/recipes/{recipe_id}")
+def delete_recipe_endpoint(
+    recipe_id: int,
+    admin_email: str = Header(None, alias="X-Admin-Email")
+):
+    """Delete recipe"""
+    verify_admin(admin_email)
+    
+    try:
+        import psycopg
+        from dotenv import load_dotenv
+        import os
+        
+        load_dotenv()
+        
+        # Get Supabase connection
+        supabase_url = os.environ.get('SUPABASE_OG_URL')
+        if not supabase_url:
+            raise HTTPException(status_code=500, detail="Database configuration error")
+        
+        # Check if recipe exists
+        recipe = get_recipe_by_id(recipe_id)
+        if not recipe:
+            raise HTTPException(status_code=404, detail="Recipe not found")
+        
+        # Delete from database
+        conn = psycopg.connect(supabase_url)
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM top_recipes WHERE id = %s", (recipe_id,))
+            conn.commit()
+        conn.close()
+        
+        return {
+            "success": True,
+            "message": f"Recipe {recipe_id} deleted successfully"
         }
     except HTTPException:
         raise
@@ -783,4 +919,204 @@ def get_statistics(
             }
         }
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# New Recipe Creation Endpoint
+# ============================================================================
+
+@router.post("/generate/create-new")
+def create_new_recipe(
+    request: CreateNewRecipeRequest,
+    admin_email: str = Header(None, alias="X-Admin-Email")
+):
+    """
+    Create a completely new recipe from scratch
+    Generates: name, description, ingredients, images, beginner/advanced steps
+    Returns job_id - use /jobs/{job_id} to track progress
+    """
+    admin = verify_admin(admin_email)
+    
+    try:
+        from workers.recipe_regeneration_worker import RecipeRegenerationTracker
+        from core.recipe_creation_service import RecipeCreationService
+        import psycopg
+        from psycopg.rows import dict_row
+        import os
+        from dotenv import load_dotenv
+        
+        load_dotenv()
+        supabase_url = os.environ.get("SUPABASE_OG_URL")
+        
+        # Create tracker and job
+        tracker = RecipeRegenerationTracker()
+        job_id = tracker.create_job(
+            job_type='new_recipe_creation',
+            started_by=admin,
+            total_recipes=1
+        )
+        
+        # Run generation in background thread
+        def run_creation():
+            result_conn = None
+            try:
+                # Initialize service
+                service = RecipeCreationService(tracker=tracker)
+                
+                tracker.log(
+                    f"Starting new recipe creation: {request.dish_name} ({request.region})",
+                    "INFO"
+                )
+                
+                # Log image generation options
+                image_options = []
+                if request.generate_main_image:
+                    image_options.append("main image")
+                if request.generate_ingredients_image:
+                    image_options.append("ingredients image")
+                if request.generate_step_images:
+                    image_options.append("step images")
+                
+                if image_options:
+                    tracker.log(
+                        f"Will generate: {', '.join(image_options)}",
+                        "INFO"
+                    )
+                else:
+                    tracker.log(
+                        "No images will be generated (text only)",
+                        "INFO"
+                    )
+                
+                # First, generate text content (name, description, ingredients, steps)
+                tracker.log("Generating text content", "INFO")
+                text_recipe = service.create_recipe_text_only(
+                    dish_name=request.dish_name,
+                    region=request.region
+                )
+                
+                # Save recipe to database FIRST (without images) to get real ID
+                tracker.log("Saving recipe to database (text only)", "INFO")
+                result_conn = psycopg.connect(supabase_url, row_factory=dict_row)
+                with result_conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO top_recipes (
+                            name, description, region, difficulty,
+                            prep_time_minutes, cook_time_minutes, total_time_minutes,
+                            calories, tastes, meal_types, dietary_tags,
+                            rating, popularity_score,
+                            ingredients, ingredients_image,
+                            steps_beginner, steps_advanced,
+                            steps_beginner_images, steps_advanced_images,
+                            image_url, validation_status,
+                            source, created_at
+                        ) VALUES (
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW()
+                        )
+                        RETURNING id
+                    """, (
+                        text_recipe['name'],
+                        text_recipe['description'],
+                        text_recipe['region'],
+                        text_recipe['difficulty'],
+                        text_recipe.get('prep_time_minutes', 20),
+                        text_recipe.get('cook_time_minutes', 30),
+                        text_recipe.get('total_time_minutes', 50),
+                        text_recipe.get('calories', 0),
+                        psycopg.types.json.Json(text_recipe.get('tastes', [])),
+                        text_recipe.get('meal_types', []),
+                        text_recipe.get('dietary_tags', []),
+                        text_recipe.get('rating', 0.0),
+                        text_recipe.get('popularity_score', 0.0),
+                        psycopg.types.json.Json(text_recipe['ingredients']),
+                        None,  # ingredients_image - will be generated later
+                        psycopg.types.json.Json(text_recipe['steps_beginner']),
+                        psycopg.types.json.Json(text_recipe['steps_advanced']),
+                        psycopg.types.json.Json([]),  # steps_beginner_images - will be generated later
+                        psycopg.types.json.Json([]),  # steps_advanced_images - will be generated later
+                        None,  # image_url - will be generated later
+                        'pending',
+                        'admin_generated'
+                    ))
+                    new_recipe_id = cur.fetchone()['id']
+                    result_conn.commit()
+                
+                tracker.log(f"Recipe created with ID: {new_recipe_id}", "SUCCESS")
+                
+                # Now generate images using the real recipe ID
+                generated_images = service.generate_recipe_images(
+                    recipe_id=new_recipe_id,
+                    recipe_name=text_recipe['name'],
+                    description=text_recipe['description'],
+                    ingredients=text_recipe['ingredients'],
+                    steps_beginner=text_recipe['steps_beginner'],
+                    steps_advanced=text_recipe['steps_advanced'],
+                    generate_main_image=request.generate_main_image,
+                    generate_ingredients_image=request.generate_ingredients_image,
+                    generate_step_images=request.generate_step_images
+                )
+                
+                # Update recipe with generated images
+                tracker.log("Updating recipe with generated images", "INFO")
+                with result_conn.cursor() as cur:
+                    cur.execute("""
+                        UPDATE top_recipes
+                        SET image_url = %s,
+                            ingredients_image = %s,
+                            steps_beginner_images = %s,
+                            steps_advanced_images = %s,
+                            validation_status = 'pending'
+                        WHERE id = %s
+                    """, (
+                        generated_images.get('main_image'),
+                        generated_images.get('ingredients_image'),
+                        psycopg.types.json.Json(generated_images.get('beginner_images', [])),
+                        psycopg.types.json.Json(generated_images.get('advanced_images', [])),
+                        new_recipe_id
+                    ))
+                    result_conn.commit()
+                
+                # Log the recipe ID (so frontend can retrieve it)
+                tracker.log(
+                    f"✅ Recipe created successfully with ID: {new_recipe_id}",
+                    "SUCCESS",
+                    recipe_id=new_recipe_id,
+                    recipe_name=text_recipe['name'],
+                    metadata={
+                        'recipe_id': new_recipe_id,
+                        'recipe_name': text_recipe['name']
+                    }
+                )
+                
+                # Mark job as completed
+                tracker.complete_job(status='completed')
+                
+            except Exception as e:
+                error_msg = str(e)
+                traceback.print_exc()
+                
+                # Log error
+                tracker.log(f"❌ Recipe creation failed: {error_msg}", "ERROR")
+                
+                # Mark job as failed
+                tracker.complete_job(status='failed', error_message=error_msg)
+                
+            finally:
+                if result_conn and not result_conn.closed:
+                    result_conn.close()
+        
+        # Start background thread
+        thread = threading.Thread(target=run_creation, daemon=True)
+        thread.start()
+        
+        return {
+            "success": True,
+            "job_id": job_id,
+            "message": "Recipe creation started in background",
+            "note": "Use GET /api/recipe-admin/jobs/{job_id} to track progress"
+        }
+        
+    except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))

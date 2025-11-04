@@ -4,22 +4,28 @@ Used for generating beginner/advanced steps, validating ingredients, and generat
 """
 
 # Ingredients image generation prompt
-INGREDIENTS_IMAGE_PROMPT = """Create a professional, appetizing image showing all the ingredients for this recipe arranged on a clean surface.
+INGREDIENTS_IMAGE_PROMPT = """Create a professional, appetizing image showing ALL the ingredients for this recipe arranged on a clean surface.
 
 Recipe: {recipe_name}
 Ingredients: {ingredients}
 
+CRITICAL REQUIREMENTS (STRICTLY ENFORCE):
+1. IMAGE SIZE & ORIENTATION: MUST be HORIZONTAL format, aspect ratio 1024x680 pixels (landscape orientation)
+2. NO TEXT RULE: ABSOLUTELY NO text, labels, ingredient names, numbers, captions, watermarks, or any written elements
+3. ALL INGREDIENTS VISIBLE: Ensure EVERY ingredient listed is visible and clearly arranged in the frame
+
 The image should:
-- Show all ingredients clearly arranged (NO LABELS, NO TEXT)
-- Use natural lighting
+- Show ALL ingredients from the list, clearly arranged and visible
+- Use natural lighting to show ingredients clearly
 - Have a clean, professional food photography aesthetic
-- Include measuring tools if relevant
+- Include measuring tools/bowls if they help display ingredients
 - Use a neutral background (white, marble, or wood)
-- Make ingredients look fresh and appealing
+- Make ingredients look fresh, appetizing, and well-organized
+- Frame composition should be HORIZONTAL (wider than tall)
 
-CRITICAL: STRICTLY DO NOT INCLUDE ANY TEXT, LABELS, NUMBERS, CAPTIONS, or WATERMARKS in the image. The image must be completely text-free.
+STRICTLY FORBIDDEN: Any text, labels, numbers, ingredient names, captions, overlays, watermarks, or written elements of any kind.
 
-Style: Professional food photography, bright and clean, suitable for a recipe card. NO TEXT OVERLAY."""
+Output: Horizontal landscape image (1024x680), professional food photography style, completely text-free."""
 
 # Beginner steps generation prompt
 BEGINNER_STEPS_PROMPT = """You are creating a recipe guide for BEGINNERS who are learning to cook. Generate 5-15 detailed steps for this recipe.
@@ -123,17 +129,23 @@ MAIN_IMAGE_PROMPT = """Create a professional, mouthwatering image of this finish
 Recipe: {recipe_name}
 Description: {description}
 
+CRITICAL REQUIREMENTS (STRICTLY ENFORCE):
+1. IMAGE SIZE & ORIENTATION: MUST be HORIZONTAL format, aspect ratio 1024x680 pixels (landscape orientation)
+2. NO TEXT RULE: ABSOLUTELY NO text, recipe names, labels, captions, watermarks, or any written elements
+3. PROFESSIONAL PRESENTATION: Restaurant-quality plating and composition
+
 The image should:
-- Show the completed dish beautifully plated (NO TEXT, NO LABELS)
+- Show the completed dish beautifully plated and presented
 - Use professional food photography lighting
 - Have an appetizing, restaurant-quality presentation
 - Include garnishes and complementary elements
 - Use appropriate serving dishes/plates for this cuisine
 - Make the dish look delicious and inviting
+- Frame composition should be HORIZONTAL (wider than tall)
 
-CRITICAL: STRICTLY DO NOT INCLUDE ANY TEXT, RECIPE NAMES, LABELS, CAPTIONS, or WATERMARKS in the image. The image must be completely text-free.
+STRICTLY FORBIDDEN: Any text, recipe names, labels, numbers, captions, overlays, watermarks, or written elements of any kind.
 
-Style: Professional food photography, vibrant colors, sharp focus on the dish. NO TEXT OVERLAY."""
+Output: Horizontal landscape image (1024x680), professional food photography style, vibrant colors, sharp focus, completely text-free."""
 
 # Step-by-step image prompts
 def get_step_image_prompt(recipe_name: str, step_number: int, step_text: str) -> str:
@@ -143,14 +155,20 @@ def get_step_image_prompt(recipe_name: str, step_number: int, step_text: str) ->
 Recipe: {recipe_name}
 Step: {step_text}
 
+CRITICAL REQUIREMENTS (STRICTLY ENFORCE):
+1. IMAGE SIZE & ORIENTATION: MUST be HORIZONTAL format, aspect ratio 1024x680 pixels (landscape orientation)
+2. NO TEXT RULE: ABSOLUTELY NO text, step numbers, labels, captions, watermarks, or any written elements
+3. INSTRUCTIONAL CLARITY: Show the cooking action clearly and unambiguously
+
 The image should:
 - Clearly demonstrate the action described in the step
-- Show hands/tools performing the action (NO TEXT, NO LABELS)
+- Show hands/tools performing the action in a natural way
 - Use good lighting to show details clearly
-- Have an instructional, how-to style
+- Have an instructional, how-to photography style
 - Be shot from an angle that shows the process clearly
 - Include relevant ingredients/tools in frame
+- Frame composition should be HORIZONTAL (wider than tall)
 
-CRITICAL: STRICTLY DO NOT INCLUDE ANY TEXT, STEP NUMBERS, LABELS, CAPTIONS, or WATERMARKS in the image. The image must be completely text-free. No UI elements, no overlays, just the cooking action.
+STRICTLY FORBIDDEN: Any text, step numbers, labels, ingredient names, measurements, captions, UI elements, overlays, watermarks, or written elements of any kind.
 
-Style: Instructional photography, clear and practical, suitable for a cooking tutorial. NO TEXT OVERLAY."""
+Output: Horizontal landscape image (1024x680), instructional photography style, clear and practical, completely text-free."""
