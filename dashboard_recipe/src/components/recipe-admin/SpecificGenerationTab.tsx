@@ -264,31 +264,10 @@ export function SpecificGenerationTab() {
     }
   };
 
-  // Save generated recipe to database
-  const handleSaveRecipe = async () => {
-    if (!generatedRecipe) return;
-
-    try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/recipe-admin/recipes`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Admin-Email': localStorage.getItem('adminEmail') || '',
-        },
-        body: JSON.stringify(generatedRecipe),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to save recipe: ${response.statusText}`);
-      }
-
-      alert('✅ Recipe saved successfully!');
-      // Reset wizard
-      resetWizard();
-    } catch (error) {
-      console.error('Save error:', error);
-      alert(`Failed to save: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
+  // Recipe is already saved by the backend worker, just reset the wizard
+  const handleConfirmRecipe = () => {
+    alert('✅ Recipe created successfully! You can now view it in the Data Manager.');
+    resetWizard();
   };
 
   // Reset wizard to start
@@ -733,10 +712,10 @@ export function SpecificGenerationTab() {
               ✕ Discard & Start Over
             </button>
             <button
-              onClick={handleSaveRecipe}
+              onClick={handleConfirmRecipe}
               className="flex-1 px-6 py-3 rounded-lg bg-green-600 hover:bg-green-700 font-semibold"
             >
-              ✓ Save Recipe to Database
+              ✓ Confirm & Close
             </button>
           </div>
         </div>
