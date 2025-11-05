@@ -32,6 +32,10 @@ async def submit_preferences(preferences: UserPreferencesRequest):
         session_id = f"session_{uuid.uuid4().hex[:8]}"
         
         # Format preferences
+        dietary_preference = ""
+        if preferences.is_vegetarian:
+            dietary_preference = "\n- Dietary Preference: Pure Vegetarian (ONLY vegetarian recipes, no meat, fish, or eggs)"
+        
         preferences_str = f"""
 User Preferences:
 - Region/Cuisine: {preferences.region}
@@ -40,7 +44,7 @@ User Preferences:
 - Time Available: {preferences.time_available}
 - Allergies: {', '.join(preferences.allergies) if preferences.allergies else 'None'}
 - Dislikes: {', '.join(preferences.dislikes) if preferences.dislikes else 'None'}
-- Available Ingredients: {', '.join(preferences.available_ingredients)}
+- Available Ingredients: {', '.join(preferences.available_ingredients)}{dietary_preference}
 """
         
         # Store in session

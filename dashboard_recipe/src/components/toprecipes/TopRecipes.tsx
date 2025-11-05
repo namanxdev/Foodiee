@@ -11,6 +11,8 @@ import { FaChevronLeft, FaChevronRight, FaUtensils } from 'react-icons/fa';
 import RecipeCard from './RecipeCard';
 import RecipeFilters from './RecipeFilters';
 import RecipeDetailModal from './RecipeDetailModal';
+import VegetarianToggle from '@/components/VegetarianToggle';
+import { useVegetarian } from '@/contexts/VegetarianContext';
 import {
   RecipeFilters as IRecipeFilters,
   TopRecipeSummary,
@@ -18,6 +20,7 @@ import {
 } from '@/services/topRecipesApi';
 
 export default function TopRecipes() {
+  const { isVegetarian } = useVegetarian();
   const [filters, setFilters] = useState<IRecipeFilters>({
     page: 1,
     page_size: 12,
@@ -32,6 +35,36 @@ export default function TopRecipes() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedRecipeId, setSelectedRecipeId] = useState<number | null>(null);
+
+  // Update filters when vegetarian toggle changes
+  useEffect(() => {
+    if (isVegetarian) {
+      // When vegetarian mode is ON, ensure "Vegetarian" is in dietary_tags
+      setFilters((prevFilters) => {
+        const currentTags = prevFilters.dietary_tags || [];
+        if (!currentTags.includes('Vegetarian')) {
+          return {
+            ...prevFilters,
+            dietary_tags: ['Vegetarian'],
+            page: 1,
+          };
+        }
+        return prevFilters;
+      });
+    } else {
+      // When vegetarian mode is OFF, remove "Vegetarian" from dietary_tags if it's the only tag
+      setFilters((prevFilters) => {
+        if (prevFilters.dietary_tags?.length === 1 && prevFilters.dietary_tags[0] === 'Vegetarian') {
+          return {
+            ...prevFilters,
+            dietary_tags: undefined,
+            page: 1,
+          };
+        }
+        return prevFilters;
+      });
+    }
+  }, [isVegetarian]);
 
   // Fetch recipes whenever filters change
   useEffect(() => {
@@ -80,6 +113,9 @@ export default function TopRecipes() {
           Discover our curated collection of {totalCount.toLocaleString()} amazing recipes from around the world
         </p>
       </div>
+
+      {/* Vegetarian Toggle */}
+      <VegetarianToggle variant="filter" />
 
       {/* Filters */}
       <RecipeFilters filters={filters} onChange={handleFilterChange} />

@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { FaGlobe, FaUtensils, FaClock, FaAllergies, FaThumbsDown, FaShoppingBasket } from "react-icons/fa";
 import { API_CONFIG } from "@/constants";
+import { useVegetarian } from "@/contexts/VegetarianContext";
 
 interface PreferencesFormProps {
   onSubmit: (sessionId: string, recommendations: string) => void;
 }
 
 export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
+  const { isVegetarian } = useVegetarian();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     region: "",
@@ -36,10 +38,16 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
     setLoading(true);
 
     try {
+      // Add vegetarian preference to form data if toggle is on
+      const payload = {
+        ...formData,
+        is_vegetarian: isVegetarian, // Pass vegetarian preference to backend
+      };
+
       const response = await fetch(`${API_CONFIG.BASE_URL}/api/preferences`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -80,6 +88,12 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
         <div className="bg-gradient-to-r from-orange-500 to-red-500 p-8 text-white">
           <h2 className="text-4xl font-bold mb-2">Tell Us Your Preferences</h2>
           <p className="text-orange-100">Let's find the perfect recipe for you!</p>
+          {isVegetarian && (
+            <div className="mt-4 flex items-center gap-2 bg-green-500/30 backdrop-blur-sm rounded-lg p-3 border border-green-300/50">
+              <span className="text-green-100">🌱</span>
+              <span className="text-green-50 font-medium">Pure Vegetarian mode is active - Only vegetarian recipes will be recommended</span>
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 space-y-6" style={{
