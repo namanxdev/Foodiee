@@ -42,9 +42,29 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
     setLoading(true);
 
     try {
+      // Ensure we're using the arrays, not the temp input values
+      // Also handle any remaining text in input fields (if user typed but didn't click Add)
+      const finalAllergies = [...formData.allergies];
+      const finalDislikes = [...formData.dislikes];
+      const finalIngredients = [...formData.available_ingredients];
+      
+      // Add any remaining text in input fields (if user forgot to click Add)
+      if (tempInput.allergies.trim() && !finalAllergies.includes(tempInput.allergies.trim())) {
+        finalAllergies.push(tempInput.allergies.trim());
+      }
+      if (tempInput.dislikes.trim() && !finalDislikes.includes(tempInput.dislikes.trim())) {
+        finalDislikes.push(tempInput.dislikes.trim());
+      }
+      if (tempInput.ingredients.trim() && !finalIngredients.includes(tempInput.ingredients.trim())) {
+        finalIngredients.push(tempInput.ingredients.trim());
+      }
+
       // Add vegetarian preference to form data if toggle is on
       const payload = {
         ...formData,
+        allergies: finalAllergies,
+        dislikes: finalDislikes,
+        available_ingredients: finalIngredients,
         is_vegetarian: isVegetarian, // Pass vegetarian preference to backend
       };
 
@@ -82,11 +102,20 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
   };
 
   const addTag = (field: "allergies" | "dislikes" | "available_ingredients", value: string) => {
-    if (value.trim()) {
+    const trimmedValue = value.trim();
+    if (trimmedValue && !formData[field].includes(trimmedValue)) {
       setFormData({
         ...formData,
-        [field]: [...formData[field], value.trim()],
+        [field]: [...formData[field], trimmedValue],
       });
+      // Clear the input after adding
+      if (field === "allergies") {
+        setTempInput({ ...tempInput, allergies: "" });
+      } else if (field === "dislikes") {
+        setTempInput({ ...tempInput, dislikes: "" });
+      } else if (field === "available_ingredients") {
+        setTempInput({ ...tempInput, ingredients: "" });
+      }
     }
   };
 
@@ -233,32 +262,34 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
                   if (e.key === "Enter") {
                     e.preventDefault();
                     addTag("allergies", tempInput.allergies);
-                    setTempInput({ ...tempInput, allergies: "" });
                   }
                 }}
               />
               <button
                 type="button"
-                onClick={() => {
-                  addTag("allergies", tempInput.allergies);
-                  setTempInput({ ...tempInput, allergies: "" });
-                }}
+                onClick={() => addTag("allergies", tempInput.allergies)}
                 className="btn bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600"
               >
                 Add
               </button>
             </div>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {formData.allergies.map((allergy, index) => (
-                <span
-                  key={index}
-                  className="badge badge-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 gap-2 p-3 hover:bg-red-200 dark:hover:bg-red-900/50 transition-all cursor-pointer"
-                  onClick={() => removeTag("allergies", index)}
-                >
-                  {allergy} ✕
-                </span>
-              ))}
-            </div>
+            {formData.allergies.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {formData.allergies.map((allergy, index) => (
+                  <span
+                    key={index}
+                    className="badge badge-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 gap-2 p-3 hover:bg-red-200 dark:hover:bg-red-900/50 transition-all cursor-pointer"
+                    onClick={() => removeTag("allergies", index)}
+                    title="Click to remove"
+                  >
+                    {allergy} ✕
+                  </span>
+                ))}
+              </div>
+            )}
+            {formData.allergies.length === 0 && tempInput.allergies.trim() && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">💡 Press Enter or click "Add" to add this item</p>
+            )}
           </div>
 
           {/* Dislikes */}
@@ -279,32 +310,34 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
                   if (e.key === "Enter") {
                     e.preventDefault();
                     addTag("dislikes", tempInput.dislikes);
-                    setTempInput({ ...tempInput, dislikes: "" });
                   }
                 }}
               />
               <button
                 type="button"
-                onClick={() => {
-                  addTag("dislikes", tempInput.dislikes);
-                  setTempInput({ ...tempInput, dislikes: "" });
-                }}
+                onClick={() => addTag("dislikes", tempInput.dislikes)}
                 className="btn bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600"
               >
                 Add
               </button>
             </div>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {formData.dislikes.map((dislike, index) => (
-                <span
-                  key={index}
-                  className="badge badge-lg bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 gap-2 p-3 hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-all cursor-pointer"
-                  onClick={() => removeTag("dislikes", index)}
-                >
-                  {dislike} ✕
-                </span>
-              ))}
-            </div>
+            {formData.dislikes.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {formData.dislikes.map((dislike, index) => (
+                  <span
+                    key={index}
+                    className="badge badge-lg bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 gap-2 p-3 hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-all cursor-pointer"
+                    onClick={() => removeTag("dislikes", index)}
+                    title="Click to remove"
+                  >
+                    {dislike} ✕
+                  </span>
+                ))}
+              </div>
+            )}
+            {formData.dislikes.length === 0 && tempInput.dislikes.trim() && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">💡 Press Enter or click "Add" to add this item</p>
+            )}
           </div>
 
           {/* Available Ingredients */}
@@ -325,46 +358,62 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
                   if (e.key === "Enter") {
                     e.preventDefault();
                     addTag("available_ingredients", tempInput.ingredients);
-                    setTempInput({ ...tempInput, ingredients: "" });
                   }
                 }}
               />
               <button
                 type="button"
-                onClick={() => {
-                  addTag("available_ingredients", tempInput.ingredients);
-                  setTempInput({ ...tempInput, ingredients: "" });
-                }}
+                onClick={() => addTag("available_ingredients", tempInput.ingredients)}
                 className="btn bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600"
               >
                 Add
               </button>
             </div>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {formData.available_ingredients.map((ingredient, index) => (
-                <span
-                  key={index}
-                  className="badge badge-lg bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 gap-2 p-3 hover:bg-green-200 dark:hover:bg-green-900/50 transition-all cursor-pointer"
-                  onClick={() => removeTag("available_ingredients", index)}
-                >
-                  {ingredient} ✕
-                </span>
-              ))}
-            </div>
+            {formData.available_ingredients.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {formData.available_ingredients.map((ingredient, index) => (
+                  <span
+                    key={index}
+                    className="badge badge-lg bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 gap-2 p-3 hover:bg-green-200 dark:hover:bg-green-900/50 transition-all cursor-pointer"
+                    onClick={() => removeTag("available_ingredients", index)}
+                    title="Click to remove"
+                  >
+                    {ingredient} ✕
+                  </span>
+                ))}
+              </div>
+            )}
+            {formData.available_ingredients.length === 0 && tempInput.ingredients.trim() && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">💡 Press Enter or click "Add" to add this ingredient</p>
+            )}
           </div>
 
           {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={loading || !formData.region || formData.taste_preferences.length === 0 || !formData.meal_type || !formData.time_available || formData.available_ingredients.length === 0}
-            className="btn btn-lg w-full bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white border-none hover:from-orange-600 hover:via-red-600 hover:to-pink-600 shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <span className="loading loading-spinner loading-md"></span>
-            ) : (
-              "🔍 Find My Perfect Recipe!"
+          <div className="space-y-2">
+            {/* Helper text to guide users */}
+            {(!formData.region || formData.taste_preferences.length === 0 || !formData.meal_type || !formData.time_available || (formData.available_ingredients.length === 0 && !tempInput.ingredients.trim())) && (
+              <div className="text-sm text-gray-600 dark:text-gray-400 text-center p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                {!formData.region && "Please select a cuisine preference. "}
+                {formData.taste_preferences.length === 0 && "Please select at least one taste preference. "}
+                {!formData.meal_type && "Please select a meal type. "}
+                {!formData.time_available && "Please select available time. "}
+                {formData.available_ingredients.length === 0 && !tempInput.ingredients.trim() && "Please add at least one available ingredient (click 'Add' after typing)."}
+                {formData.available_ingredients.length === 0 && tempInput.ingredients.trim() && "💡 Tip: Click 'Add' to add your ingredient to the list, or it will be added automatically when you submit."}
+              </div>
             )}
-          </button>
+            
+            <button
+              type="submit"
+              disabled={loading || !formData.region || formData.taste_preferences.length === 0 || !formData.meal_type || !formData.time_available || (formData.available_ingredients.length === 0 && !tempInput.ingredients.trim())}
+              className="btn btn-lg w-full bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white border-none hover:from-orange-600 hover:via-red-600 hover:to-pink-600 shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <span className="loading loading-spinner loading-md"></span>
+              ) : (
+                "🔍 Find My Perfect Recipe!"
+              )}
+            </button>
+          </div>
         </form>
       </div>
     </div>

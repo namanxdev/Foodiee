@@ -69,14 +69,14 @@ export default function Header({ session }: HeaderProps) {
             <div className="flex items-center gap-4">
               {/* Admin Link */}
               {isAdmin && (
-                <Link
+                  <Link
                   href="/admin"
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
                   title="Admin Dashboard"
-                >
+                  >
                   <FaCog /> <span className="hidden sm:inline">Admin</span>
                   <span className="sm:hidden">⚙️</span>
-                </Link>
+                  </Link>
               )}
 
               <div className="text-white text-right hidden sm:block">

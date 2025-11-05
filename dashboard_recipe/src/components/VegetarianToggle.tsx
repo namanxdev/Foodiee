@@ -23,7 +23,7 @@ export default function VegetarianToggle({ variant = "filter", className = "" }:
         title={isVegetarian ? "Vegetarian mode ON - Click to turn off" : "Click to enable vegetarian mode"}
       >
         <FaLeaf className={isVegetarian ? "text-white" : "text-green-600 dark:text-green-400"} />
-        <span className="hidden sm:inline">{isVegetarian ? "Pure Veg" : "Veg Mode"}</span>
+        <span className="hidden sm:inline">{isVegetarian ? "Pure Veg" : "Veg Mode (off)"}</span>
       </button>
     );
   }

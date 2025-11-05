@@ -6,7 +6,6 @@ import { FaArrowRight, FaImage, FaForward, FaLock } from "react-icons/fa";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ImageGeneratingAnimation from "@/components/ImageGeneratingAnimation";
-import ImageCredits from "@/components/ImageCredits";
 import { 
   getRecipeDetails, 
   getNextStep, 
@@ -37,7 +36,12 @@ export default function ChatInterface({ sessionId, initialRecommendations }: Cha
   const [generatingImage, setGeneratingImage] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [imageLimitReached, setImageLimitReached] = useState(false);
-  const [creditsRefreshTrigger, setCreditsRefreshTrigger] = useState(0);
+  const [creditsPopup, setCreditsPopup] = useState<{
+    show: boolean;
+    remaining: number;
+    max: number;
+    allowed: boolean;
+  } | null>(null);
   const [recipeNames, setRecipeNames] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -52,12 +56,27 @@ export default function ChatInterface({ sessionId, initialRecommendations }: Cha
       // Skip empty lines
       if (!line.trim()) continue;
       
-      // Match various patterns:
+      // First, try to match bold recipe names directly (like "**Maharashtrian Gopalkala Recipe**")
+      const boldMatch = line.match(/\*\*([^*]+?)\*\*/);
+      if (boldMatch && boldMatch[1]) {
+        let recipeName = boldMatch[1].trim();
+        // Remove trailing parentheses content like "(Curd Poha With Fruits)"
+        recipeName = recipeName.replace(/\s*\([^)]*\)\s*$/, '').trim();
+        if (recipeName && 
+            recipeName.length > 3 && 
+            recipeName.length < 100 &&
+            !recipes.includes(recipeName) &&
+            !recipeName.toLowerCase().startsWith('recipe ')) {
+          recipes.push(recipeName);
+          continue;  // Found a bold recipe name, move to next line
+        }
+      }
+      
+      // Then try numbered patterns:
       // "1. Recipe Name"
       // "Recipe 1: Name"  
       // "**1. Name**"
       // "1. Name - description"
-      // "Recipe 1: Name (description)"
       const patterns = [
         /^\*?\*?\s*(\d+)\.\s*\*?\*?\s*(.+?)(?:\s*[-–—\(]|$)/i,  // "1. Recipe Name" or "**1. Name**"
         /^Recipe\s+(\d+)[:\.]?\s*(.+?)(?:\s*[-–—\(]|$)/i,  // "Recipe 1: Name"
@@ -82,7 +101,7 @@ export default function ChatInterface({ sessionId, initialRecommendations }: Cha
               recipeName.length > 3 && 
               recipeName.length < 100 &&  // Reasonable length
               !recipes.includes(recipeName) &&
-              !recipeName.toLowerCase().includes('recipe') &&  // Avoid "Recipe 1" as name
+              !recipeName.toLowerCase().startsWith('recipe ') &&  // Avoid "Recipe 1" as name
               !recipeName.match(/^\d+$/)) {  // Not just a number
             recipes.push(recipeName);
             break;  // Found a match, move to next line
@@ -96,13 +115,24 @@ export default function ChatInterface({ sessionId, initialRecommendations }: Cha
       return recipes.slice(0, 3);
     }
     
-    // Fallback: try to find any line that looks like a recipe
+    // Fallback: try to find any line that looks like a recipe (starts with bold or number)
     for (const line of lines) {
       if (line.trim().length > 10 && line.trim().length < 80) {
-        const cleaned = line.trim().replace(/^\d+\.\s*/, '').replace(/\*\*/g, '').trim();
-        if (cleaned && cleaned.length > 5 && !recipes.includes(cleaned)) {
-          recipes.push(cleaned);
-          if (recipes.length >= 3) break;
+        // Check for bold text
+        const boldMatch = line.match(/\*\*([^*]+?)\*\*/);
+        if (boldMatch && boldMatch[1]) {
+          const cleaned = boldMatch[1].trim().replace(/\s*\([^)]*\)\s*$/, '').trim();
+          if (cleaned && cleaned.length > 5 && !recipes.includes(cleaned)) {
+            recipes.push(cleaned);
+            if (recipes.length >= 3) break;
+          }
+        } else {
+          // Check for numbered lines
+          const cleaned = line.trim().replace(/^\d+\.\s*/, '').replace(/\*\*/g, '').trim();
+          if (cleaned && cleaned.length > 5 && !recipes.includes(cleaned)) {
+            recipes.push(cleaned);
+            if (recipes.length >= 3) break;
+          }
         }
       }
     }
@@ -168,6 +198,16 @@ export default function ChatInterface({ sessionId, initialRecommendations }: Cha
         setMessages(loadedMessages);
         
         // Extract recipe names from recommendations
+        // Look for the message that contains recommendations
+        const recommendationsMessage = loadedMessages.find(
+          m => m.role === "assistant" && 
+               m.content && 
+               (m.content.includes("recommendations") || 
+                m.content.includes("recipe ranking") ||
+                m.content.includes("ranking:") ||
+                m.content.match(/^\d+\./))
+        ) || loadedMessages.find(m => m.role === "assistant" && m.content);
+        
         const allRecommendations = loadedMessages
           .filter(m => m.role === "assistant" && m.content)
           .map(m => m.content)
@@ -175,7 +215,18 @@ export default function ChatInterface({ sessionId, initialRecommendations }: Cha
         
         if (allRecommendations) {
           const parsed = parseRecipeNames(allRecommendations);
-          setRecipeNames(parsed);
+          console.log("Parsed recipe names from history:", parsed);
+          if (parsed.length > 0 && !parsed.every(r => r.startsWith("Recipe "))) {
+            setRecipeNames(parsed);
+          } else if (initialRecommendations) {
+            // Try parsing initial recommendations if loaded ones didn't work
+            const parsed = parseRecipeNames(initialRecommendations);
+            console.log("Parsed recipe names from initial:", parsed);
+            setRecipeNames(parsed);
+          } else {
+            console.log("No recommendations found, using defaults");
+            setRecipeNames(["Recipe 1", "Recipe 2", "Recipe 3"]);
+          }
         } else if (initialRecommendations) {
           const parsed = parseRecipeNames(initialRecommendations);
           setRecipeNames(parsed);
@@ -354,14 +405,18 @@ export default function ChatInterface({ sessionId, initialRecommendations }: Cha
     ]);
     
     try {
-      const data = await generateStepImage(sessionId, session?.user?.email);
+      if (!session?.user?.email) {
+        throw new Error("User email not available");
+      }
+      
+      const data = await generateStepImage(sessionId, session.user.email);
       
       // Remove the animation message
       setMessages(prev => prev.filter(msg => msg.content !== "GENERATING_IMAGE"));
       
       if (data.success) {
         // Use image_url if available (from S3), otherwise use base64
-        const imageUrl = data.image_url || (data.image_data ? `data:image/png;base64,${data.image_data}` : "");
+        const imageUrl = (data as any).image_url || (data.image_data ? `data:image/png;base64,${data.image_data}` : "");
         setMessages(prev => [
           ...prev, 
           { 
@@ -370,10 +425,37 @@ export default function ChatInterface({ sessionId, initialRecommendations }: Cha
             image: imageUrl 
           }
         ]);
-        // Refresh credits after successful generation - wait for backend to update
-        setTimeout(() => {
-          setCreditsRefreshTrigger(prev => prev + 1);
-        }, 1000); // Increased delay to ensure backend has updated
+        
+        // Fetch and show credits popup after successful generation
+        setTimeout(async () => {
+          if (!session?.user?.email) return;
+          
+          try {
+            const response = await fetch(
+              `${API_CONFIG.BASE_URL}/api/image-generation/check-limit`,
+              {
+                headers: {
+                  "X-User-Email": session.user.email,
+                },
+              }
+            );
+            if (response.ok) {
+              const creditsData = await response.json();
+              setCreditsPopup({
+                show: true,
+                remaining: creditsData.remaining_count,
+                max: creditsData.max_allowed,
+                allowed: creditsData.allowed,
+              });
+              // Auto-hide after 4 seconds
+              setTimeout(() => {
+                setCreditsPopup(null);
+              }, 4000);
+            }
+          } catch (error) {
+            console.error("Failed to fetch credits:", error);
+          }
+        }, 1000); // Wait for backend to update
       }
     } catch (error: any) {
       console.error("Error generating image:", error);
@@ -432,15 +514,6 @@ export default function ChatInterface({ sessionId, initialRecommendations }: Cha
         </div>
       )}
 
-      {/* Image Credits */}
-      {!isReadOnly && session?.user?.email && (
-        <div className="mb-4">
-          <ImageCredits 
-            onLimitReached={() => setImageLimitReached(true)} 
-            refreshTrigger={creditsRefreshTrigger}
-          />
-        </div>
-      )}
 
       {/* Messages Container */}
       {!messagesLoaded ? (
@@ -473,9 +546,16 @@ export default function ChatInterface({ sessionId, initialRecommendations }: Cha
             )}
             
             {/* Recipe Selection Buttons */}
-            {idx === 0 && msg.role === "assistant" && !currentRecipe && recipeNames.length > 0 && (
+            {msg.role === "assistant" && 
+             !currentRecipe && 
+             recipeNames.length > 0 && 
+             (msg.content.includes("recommendations") || 
+              msg.content.includes("recipe") || 
+              msg.content.includes("ranking") ||
+              msg.content.match(/^\d+\./) ||
+              idx === 0) && (
               <div className="mt-4 space-y-2 text-left">
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2 font-medium">
                   Select a recipe to start:
                 </p>
                 {recipeNames.map((recipe, i) => (
@@ -483,7 +563,7 @@ export default function ChatInterface({ sessionId, initialRecommendations }: Cha
                     key={i}
                     onClick={() => handleSelectRecipe(recipe)}
                     disabled={loading || isReadOnly}
-                    className="block w-full text-left bg-orange-100 hover:bg-orange-200 dark:bg-orange-900/30 dark:hover:bg-orange-900/50 dark:text-white dark:border dark:border-orange-700 p-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="block w-full text-left bg-orange-100 hover:bg-orange-200 dark:bg-orange-900/30 dark:hover:bg-orange-900/50 dark:text-white dark:border dark:border-orange-700 p-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                   >
                     {recipe}
                   </button>
@@ -511,19 +591,60 @@ export default function ChatInterface({ sessionId, initialRecommendations }: Cha
           <div className="flex gap-3">
             <button
               onClick={handleNextStep}
-              disabled={loading || imageLimitReached}
+              disabled={loading}
               className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 dark:from-green-600 dark:to-emerald-600 hover:from-green-600 hover:to-emerald-600 dark:hover:from-green-700 dark:hover:to-emerald-700 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 shadow-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
               <FaArrowRight /> Next Step
             </button>
             
-            <button
-              onClick={handleGenerateImage}
-              disabled={loading || generatingImage || imageLimitReached}
-              className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 dark:from-purple-600 dark:to-pink-600 hover:from-purple-600 hover:to-pink-600 dark:hover:from-purple-700 dark:hover:to-pink-700 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 shadow-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-            >
-              <FaImage /> {generatingImage ? "Generating..." : "Generate Image"}
-            </button>
+            <div className="flex-1 relative">
+              <button
+                onClick={handleGenerateImage}
+                disabled={loading || generatingImage || imageLimitReached}
+                className="w-full bg-gradient-to-r from-purple-500 to-pink-500 dark:from-purple-600 dark:to-pink-600 hover:from-purple-600 hover:to-pink-600 dark:hover:from-purple-700 dark:hover:to-pink-700 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 shadow-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              >
+                <FaImage /> {generatingImage ? "Generating..." : "Generate Image"}
+              </button>
+              
+              {/* Credits Popup */}
+              {creditsPopup?.show && (
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-50 transition-opacity duration-300 opacity-100">
+                  <div className={`bg-white dark:bg-slate-800 border-2 rounded-lg shadow-2xl p-3 min-w-[200px] ${
+                    creditsPopup.allowed 
+                      ? "border-green-500 dark:border-green-400" 
+                      : "border-red-500 dark:border-red-400"
+                  }`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <FaImage className={`${creditsPopup.allowed ? "text-green-500 dark:text-green-400" : "text-red-500 dark:text-red-400"}`} />
+                      <span className="font-semibold text-sm text-gray-800 dark:text-gray-200">
+                        Image Credits
+                      </span>
+                    </div>
+                    <div className={`text-sm font-bold ${
+                      creditsPopup.allowed 
+                        ? "text-green-600 dark:text-green-400" 
+                        : "text-red-600 dark:text-red-400"
+                    }`}>
+                      {creditsPopup.allowed 
+                        ? `${creditsPopup.remaining} / ${creditsPopup.max} remaining`
+                        : "Limit reached"
+                      }
+                    </div>
+                    {!creditsPopup.allowed && (
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                        Try again tomorrow
+                      </p>
+                    )}
+                  </div>
+                  {/* Arrow pointing to button */}
+                  <div className={`absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent ${
+                    creditsPopup.allowed 
+                      ? "border-t-green-500 dark:border-t-green-400" 
+                      : "border-t-red-500 dark:border-t-red-400"
+                  }`}></div>
+                </div>
+              )}
+            </div>
             
             <button
               onClick={handleSkip}

@@ -216,6 +216,8 @@ class SessionStorageService:
         """
         Add a message to chat history
         
+        Optimized: Uses in-memory cache first, then updates DB
+        
         Args:
             session_id: Session identifier
             message_type: 'user_message', 'chatbot_message', or 'generated_image'
@@ -225,7 +227,15 @@ class SessionStorageService:
         Returns:
             True if successful
         """
-        session = self.get_session(session_id)
+        # First, try to get from in-memory cache (fast path)
+        session = None
+        if session_id in _session_cache:
+            session = _session_cache[session_id]
+        
+        # If not in cache, get from database
+        if not session:
+            session = self.get_session(session_id)
+        
         if not session:
             return False
         
@@ -245,7 +255,11 @@ class SessionStorageService:
         
         chat_history.append(message)
         
-        # Save updated session
+        # Update cache immediately (for fast reads)
+        session['chat_history'] = chat_history
+        _session_cache[session_id] = session
+        
+        # Save to database (this can be slow, but it's async now)
         return self.save_session(
             session_id=session_id,
             chat_history=chat_history,
