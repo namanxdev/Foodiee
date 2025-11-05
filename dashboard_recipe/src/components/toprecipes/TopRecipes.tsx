@@ -11,6 +11,8 @@ import { FaChevronLeft, FaChevronRight, FaUtensils } from 'react-icons/fa';
 import RecipeCard from './RecipeCard';
 import RecipeFilters from './RecipeFilters';
 import RecipeDetailModal from './RecipeDetailModal';
+import VegetarianToggle from '@/components/VegetarianToggle';
+import { useVegetarian } from '@/contexts/VegetarianContext';
 import {
   RecipeFilters as IRecipeFilters,
   TopRecipeSummary,
@@ -18,6 +20,7 @@ import {
 } from '@/services/topRecipesApi';
 
 export default function TopRecipes() {
+  const { isVegetarian } = useVegetarian();
   const [filters, setFilters] = useState<IRecipeFilters>({
     page: 1,
     page_size: 12,
@@ -32,6 +35,36 @@ export default function TopRecipes() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedRecipeId, setSelectedRecipeId] = useState<number | null>(null);
+
+  // Update filters when vegetarian toggle changes
+  useEffect(() => {
+    if (isVegetarian) {
+      // When vegetarian mode is ON, ensure "Vegetarian" is in dietary_tags
+      setFilters((prevFilters) => {
+        const currentTags = prevFilters.dietary_tags || [];
+        if (!currentTags.includes('Vegetarian')) {
+          return {
+            ...prevFilters,
+            dietary_tags: ['Vegetarian'],
+            page: 1,
+          };
+        }
+        return prevFilters;
+      });
+    } else {
+      // When vegetarian mode is OFF, remove "Vegetarian" from dietary_tags if it's the only tag
+      setFilters((prevFilters) => {
+        if (prevFilters.dietary_tags?.length === 1 && prevFilters.dietary_tags[0] === 'Vegetarian') {
+          return {
+            ...prevFilters,
+            dietary_tags: undefined,
+            page: 1,
+          };
+        }
+        return prevFilters;
+      });
+    }
+  }, [isVegetarian]);
 
   // Fetch recipes whenever filters change
   useEffect(() => {
@@ -81,6 +114,9 @@ export default function TopRecipes() {
         </p>
       </div>
 
+      {/* Vegetarian Toggle */}
+      <VegetarianToggle variant="filter" />
+
       {/* Filters */}
       <RecipeFilters filters={filters} onChange={handleFilterChange} />
 
@@ -93,12 +129,29 @@ export default function TopRecipes() {
         </div>
       )}
 
-      {/* Loading State */}
+      {/* Loading State - Skeleton Cards */}
       {loading && (
-        <div className="flex items-center justify-center py-20">
-          <div className="text-center">
-            <span className="loading loading-spinner loading-lg text-orange-500"></span>
-            <p className="mt-4 text-gray-600 dark:text-gray-400">Loading delicious recipes...</p>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {Array.from({ length: filters.page_size || 12 }).map((_, i) => (
+              <div
+                key={i}
+                className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden animate-pulse"
+              >
+                {/* Image skeleton */}
+                <div className="h-48 bg-gray-200 dark:bg-gray-700"></div>
+                {/* Content skeleton */}
+                <div className="p-4 space-y-3">
+                  <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+                  <div className="flex gap-2 mt-3">
+                    <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-16"></div>
+                    <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-16"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

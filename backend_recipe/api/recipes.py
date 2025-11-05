@@ -3,7 +3,8 @@ Recipe API routes
 """
 
 from datetime import datetime
-from fastapi import APIRouter, HTTPException
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Header, BackgroundTasks
 
 from models import (
     RecipeDetailRequest, 
@@ -13,6 +14,9 @@ from models import (
 )
 from config import user_sessions
 from core import RecipeRecommender
+
+# Import cache from session_storage_service to keep it in sync
+from database.session_storage_service import _session_cache
 
 router = APIRouter(prefix="/api", tags=["recipes"])
 
@@ -25,7 +29,12 @@ def set_recommender(rec: RecipeRecommender):
     recommender = rec
 
 @router.post("/recipe/details", response_model=RecipeDetailResponse)
-async def get_recipe_details(request: RecipeDetailRequest, session_id: str):
+async def get_recipe_details(
+    request: RecipeDetailRequest, 
+    session_id: str,
+    background_tasks: BackgroundTasks,
+    user_email: Optional[str] = Header(None, alias="X-User-Email")
+):
     """
     Get detailed recipe instructions
     """
@@ -63,6 +72,51 @@ async def get_recipe_details(request: RecipeDetailRequest, session_id: str):
         session["tips"] = parsed["tips"]
         session["recipe_history"] = []  # Reset history for new recipe
         
+        # Update in-memory chat history immediately (for instant UI rendering)
+        user_msg = f"Show me how to make {recipe_name}"
+        assistant_response = f"Great choice! Let's cook {recipe_name}.\n\n**Ingredients:**\n{parsed['ingredients']}\n\n**Tips:**\n{parsed['tips']}\n\nClick \"Next Step\" to start cooking!"
+        
+        if "chat_history" not in session:
+            session["chat_history"] = []
+        session["chat_history"].extend([
+            {
+                "type": "user_message",
+                "content": user_msg,
+                "timestamp": datetime.now().isoformat(),
+                "user": user_email
+            },
+            {
+                "type": "chatbot_message",
+                "content": assistant_response,
+                "timestamp": datetime.now().isoformat()
+            }
+        ])
+        
+        # Sync with cache for fast reads
+        _session_cache[session_id] = session
+        
+        # Async DB writes (fire and forget - doesn't block response)
+        background_tasks.add_task(
+            _save_chat_message_async,
+            session_id=session_id,
+            message_type="user_message",
+            content=user_msg,
+            user_email=user_email
+        )
+        background_tasks.add_task(
+            _save_chat_message_async,
+            session_id=session_id,
+            message_type="chatbot_message",
+            content=assistant_response,
+            user_email=user_email
+        )
+        background_tasks.add_task(
+            _save_session_async,
+            session_id=session_id,
+            selected_recipe_name=recipe_name,
+            user_email=user_email
+        )
+        
         return RecipeDetailResponse(
             recipe_name=recipe_name,
             ingredients=parsed["ingredients"],
@@ -77,7 +131,11 @@ async def get_recipe_details(request: RecipeDetailRequest, session_id: str):
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 @router.post("/step/next")
-async def next_step(session_id: str):
+async def next_step(
+    session_id: str,
+    background_tasks: BackgroundTasks,
+    user_email: Optional[str] = Header(None, alias="X-User-Email")
+):
     """
     Move to the next cooking step
     """
@@ -94,8 +152,33 @@ async def next_step(session_id: str):
         steps = session["recipe_steps"]
         
         if current_index >= len(steps):
+            # Save completion message
+            completion_message = "🎉 Congratulations! You've completed all steps!" + (f"\n\n{session.get('tips', '')}" if session.get('tips') else "")
+            
+            # Update in-memory chat history immediately
+            if "chat_history" not in session:
+                session["chat_history"] = []
+            session["chat_history"].append({
+                "type": "chatbot_message",
+                "content": completion_message,
+                "timestamp": datetime.now().isoformat()
+            })
+            
+            # Sync with cache for fast reads
+            _session_cache[session_id] = session
+            
+            # Async DB write (fire and forget)
+            background_tasks.add_task(
+                _save_chat_message_async,
+                session_id=session_id,
+                message_type="chatbot_message",
+                content=completion_message,
+                user_email=user_email
+            )
+            
             return {
                 "step": None,
+                "current_step": None,
                 "step_number": current_index,
                 "total_steps": len(steps),
                 "completed": True,
@@ -116,8 +199,31 @@ async def next_step(session_id: str):
         }
         session["recipe_history"].append(history_entry)
         
+        # Update in-memory chat history immediately (for instant UI rendering)
+        step_message = f"**Step {current_index + 1}/{len(steps)}:**\n{current_step}"
+        if "chat_history" not in session:
+            session["chat_history"] = []
+        session["chat_history"].append({
+            "type": "chatbot_message",
+            "content": step_message,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+        # Sync with cache for fast reads
+        _session_cache[session_id] = session
+        
+        # Async DB write (fire and forget - doesn't block response)
+        background_tasks.add_task(
+            _save_chat_message_async,
+            session_id=session_id,
+            message_type="chatbot_message",
+            content=step_message,
+            user_email=user_email
+        )
+        
         return {
             "step": current_step,
+            "current_step": current_step,
             "step_number": current_index + 1,
             "total_steps": len(steps),
             "completed": False,
@@ -128,6 +234,55 @@ async def next_step(session_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+
+# ============================================================================
+# Background Task Helpers (Async DB writes)
+# ============================================================================
+
+def _save_chat_message_async(
+    session_id: str,
+    message_type: str,
+    content: str,
+    user_email: Optional[str] = None
+):
+    """
+    Background task to save chat message to database (non-blocking)
+    """
+    try:
+        from database.session_storage_service import get_session_storage_service
+        session_storage = get_session_storage_service()
+        session_storage.add_chat_message(
+            session_id=session_id,
+            message_type=message_type,
+            content=content,
+            user_email=user_email
+        )
+    except Exception as db_error:
+        # Log error but don't fail - in-memory state is already updated
+        print(f"⚠️  Background DB write failed (non-critical): {db_error}")
+
+
+def _save_session_async(
+    session_id: str,
+    selected_recipe_name: Optional[str] = None,
+    user_email: Optional[str] = None
+):
+    """
+    Background task to save session to database (non-blocking)
+    """
+    try:
+        from database.session_storage_service import get_session_storage_service
+        session_storage = get_session_storage_service()
+        session_storage.save_session(
+            session_id=session_id,
+            selected_recipe_name=selected_recipe_name,
+            update_last_accessed=True
+        )
+    except Exception as db_error:
+        # Log error but don't fail - in-memory state is already updated
+        print(f"⚠️  Background DB write failed (non-critical): {db_error}")
+
 
 @router.post("/step/skip")
 async def skip_to_alternatives(session_id: str):

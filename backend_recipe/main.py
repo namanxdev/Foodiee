@@ -19,8 +19,8 @@ from api import (
     users_router,
     top_recipes_router
 )
-from api.image_generation_admin import router as image_generation_admin_router
 from api.recipe_admin import router as recipe_admin_router
+from api.image_generation_limits import router as image_generation_limits_router
 from api.preferences import set_recommender as set_preferences_recommender
 from api.recipes import set_recommender as set_recipes_recommender
 from api.images import set_recommender as set_images_recommender
@@ -106,8 +106,8 @@ app.include_router(sessions_router)
 app.include_router(images_router)
 app.include_router(users_router)
 app.include_router(top_recipes_router)
-app.include_router(image_generation_admin_router)
 app.include_router(recipe_admin_router)
+app.include_router(image_generation_limits_router)
 
 # ============================================================
 # Basic Routes

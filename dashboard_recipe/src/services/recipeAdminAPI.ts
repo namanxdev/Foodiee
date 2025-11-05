@@ -24,7 +24,7 @@ import type {
 
 import { API_CONFIG } from '@/constants';
 
-const API_BASE_URL = `${API_CONFIG.BASE_URL}/api/recipe-admin`;
+const API_BASE_URL = `${API_CONFIG.BASE_URL}/api/admin`;
 
 /**
  * Admin email management (stored in localStorage)
@@ -289,4 +289,66 @@ export const cancelJob = async (jobId: number): Promise<{ message: string }> => 
   }
 
   return response.json();
+};
+
+// ============================================================================
+// Config Management
+// ============================================================================
+
+export interface ConfigItem {
+  id: number;
+  config_key: string;
+  config_value: any;
+  description: string | null;
+  updated_by: string | null;
+  updated_at: string;
+  created_at: string;
+}
+
+export interface ConfigResponse {
+  success: boolean;
+  config?: ConfigItem;
+  configs?: ConfigItem[];
+  count?: number;
+}
+
+export const getConfig = async (configKey?: string): Promise<ConfigResponse> => {
+  const url = configKey 
+    ? `${API_BASE_URL}/config?config_key=${encodeURIComponent(configKey)}`
+    : `${API_BASE_URL}/config`;
+  const response = await fetch(url, {
+    headers: getHeaders(),
+  });
+  return handleResponse<ConfigResponse>(response);
+};
+
+export const updateConfig = async (
+  configKey: string,
+  configValue: any,
+  description?: string
+): Promise<ConfigResponse> => {
+  const response = await fetch(`${API_BASE_URL}/config/${encodeURIComponent(configKey)}`, {
+    method: 'PUT',
+    headers: getHeaders(),
+    body: JSON.stringify({
+      config_value: configValue,
+      description,
+    }),
+  });
+  return handleResponse<ConfigResponse>(response);
+};
+
+export const updateUserSpecificLimit = async (
+  configKey: string,
+  userEmail: string,
+  limit: number
+): Promise<ConfigResponse> => {
+  const response = await fetch(
+    `${API_BASE_URL}/config/${encodeURIComponent(configKey)}/per-user/${encodeURIComponent(userEmail)}?limit=${limit}`,
+    {
+      method: 'PUT',
+      headers: getHeaders(),
+    }
+  );
+  return handleResponse<ConfigResponse>(response);
 };

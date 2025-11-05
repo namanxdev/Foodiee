@@ -189,6 +189,95 @@ class S3Service:
         return public_url
     
     # ========================================================================
+    # User-Generated Image Methods
+    # ========================================================================
+    
+    def upload_user_generated_step_image(
+        self,
+        user_email: str,
+        session_id: str,
+        dish_name: str,
+        step_index: int,
+        image_base64: str
+    ) -> str:
+        """
+        Upload user-generated step image to S3
+        
+        Structure: user_generated/<email>/<session_id>/<dish_name>_step_{i}
+        
+        Args:
+            user_email: User's email address (sanitized for S3 key)
+            session_id: Session identifier
+            dish_name: Name of the dish/recipe
+            step_index: Step number (1-based)
+            image_base64: Base64 encoded image string
+            
+        Returns:
+            Public S3 URL of uploaded image
+        """
+        # Sanitize inputs
+        sanitized_email = self._sanitize_email(user_email)
+        sanitized_dish = self._sanitize_recipe_name(dish_name)
+        sanitized_session = self._sanitize_session_id(session_id)
+        
+        # Generate S3 key: user_generated/<email>/<session_id>/<dish_name>_step_{i}
+        s3_key = f"user_generated/{sanitized_email}/{sanitized_session}/{sanitized_dish}_step_{step_index}.jpg"
+        
+        # Upload to S3 (no archiving for user-generated images)
+        public_url = self._upload_base64_to_s3(image_base64, s3_key)
+        
+        print(f"   ✅ Uploaded user-generated step {step_index} image: {public_url}")
+        return public_url
+    
+    def _sanitize_email(self, email: str) -> str:
+        """
+        Sanitize email address for use in S3 keys
+        
+        Args:
+            email: Email address
+            
+        Returns:
+            Sanitized email (lowercase, @ replaced with _, special chars removed)
+        """
+        # Convert to lowercase
+        sanitized = email.lower()
+        
+        # Replace @ with _at_ and other special chars with underscores
+        sanitized = sanitized.replace('@', '_at_')
+        sanitized = re.sub(r'[^a-z0-9_]+', '_', sanitized)
+        
+        # Remove leading/trailing underscores
+        sanitized = sanitized.strip('_')
+        
+        # Limit length
+        if len(sanitized) > 100:
+            sanitized = sanitized[:100]
+        
+        return sanitized
+    
+    def _sanitize_session_id(self, session_id: str) -> str:
+        """
+        Sanitize session ID for use in S3 keys
+        
+        Args:
+            session_id: Session identifier
+            
+        Returns:
+            Sanitized session ID
+        """
+        # Remove any special characters, keep alphanumeric and underscores
+        sanitized = re.sub(r'[^a-zA-Z0-9_]+', '_', session_id)
+        
+        # Remove leading/trailing underscores
+        sanitized = sanitized.strip('_')
+        
+        # Limit length
+        if len(sanitized) > 50:
+            sanitized = sanitized[:50]
+        
+        return sanitized
+    
+    # ========================================================================
     # Helper Methods
     # ========================================================================
     
