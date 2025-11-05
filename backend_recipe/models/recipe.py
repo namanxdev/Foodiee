@@ -16,6 +16,7 @@ class UserPreferencesRequest(BaseModel):
     allergies: Optional[List[str]] = Field(default=[], description="Food allergies")
     dislikes: Optional[List[str]] = Field(default=[], description="Food dislikes")
     available_ingredients: List[str] = Field(..., description="Available ingredients")
+    is_vegetarian: Optional[bool] = Field(default=False, description="Pure vegetarian preference")
 
 
 class RecipeRecommendationResponse(BaseModel):

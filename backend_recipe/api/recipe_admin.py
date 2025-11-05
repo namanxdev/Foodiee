@@ -13,7 +13,7 @@ Admin endpoints for recipe management including:
 import threading
 import traceback
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Query
 from pydantic import BaseModel
 
 from core.top_recipes_service import get_top_recipes, get_recipe_by_id, update_recipe
@@ -23,7 +23,7 @@ from workers.recipe_regeneration_worker import (
     get_job_logs
 )
 
-router = APIRouter(prefix="/api/recipe-admin", tags=["Recipe Admin"])
+router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
 # Admin email whitelist
 ADMIN_EMAILS = [
@@ -970,9 +970,238 @@ def create_new_recipe(
             "success": True,
             "job_id": job_id,
             "message": "Recipe creation started in background",
-            "note": "Use GET /api/recipe-admin/jobs/{job_id} to track progress"
+            "note": "Use GET /api/admin/jobs/{job_id} to track progress"
         }
         
     except Exception as e:
         traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# Config Management Endpoints
+# ============================================================================
+
+class ConfigUpdateRequest(BaseModel):
+    """Request model for updating config"""
+    config_value: dict
+    description: Optional[str] = None
+
+
+@router.get("/config")
+def get_config(
+    config_key: Optional[str] = None,
+    admin_email: str = Header(None, alias="X-Admin-Email")
+):
+    """
+    Get admin configuration
+    
+    Query params:
+    - config_key: Specific config key (optional, returns all if not provided)
+    """
+    verify_admin(admin_email)
+    
+    try:
+        import psycopg
+        from psycopg.rows import dict_row
+        import os
+        from dotenv import load_dotenv
+        
+        load_dotenv()
+        supabase_url = os.environ.get("SUPABASE_OG_URL")
+        if not supabase_url:
+            raise HTTPException(status_code=500, detail="Database configuration error")
+        
+        conn = psycopg.connect(supabase_url, row_factory=dict_row)
+        
+        with conn.cursor() as cur:
+            if config_key:
+                cur.execute("""
+                    SELECT * FROM admin_config
+                    WHERE config_key = %s
+                """, (config_key,))
+                config = cur.fetchone()
+                
+                if not config:
+                    raise HTTPException(status_code=404, detail=f"Config key '{config_key}' not found")
+                
+                return {
+                    "success": True,
+                    "config": dict(config)
+                }
+            else:
+                cur.execute("""
+                    SELECT * FROM admin_config
+                    ORDER BY config_key
+                """)
+                configs = cur.fetchall()
+                
+                return {
+                    "success": True,
+                    "count": len(configs),
+                    "configs": [dict(c) for c in configs]
+                }
+        
+        conn.close()
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/config/{config_key}")
+def update_config(
+    config_key: str,
+    request: ConfigUpdateRequest,
+    admin_email: str = Header(None, alias="X-Admin-Email")
+):
+    """
+    Update admin configuration
+    
+    Currently supports:
+    - max_allowed_image_generation: {"default": number, "per_user": {"email": number}}
+    """
+    verify_admin(admin_email)
+    
+    try:
+        import psycopg
+        from psycopg.rows import dict_row
+        import os
+        import json
+        from dotenv import load_dotenv
+        
+        load_dotenv()
+        supabase_url = os.environ.get("SUPABASE_OG_URL")
+        if not supabase_url:
+            raise HTTPException(status_code=500, detail="Database configuration error")
+        
+        conn = psycopg.connect(supabase_url, row_factory=dict_row)
+        
+        with conn.cursor() as cur:
+            # Check if config exists
+            cur.execute("""
+                SELECT id FROM admin_config
+                WHERE config_key = %s
+            """, (config_key,))
+            existing = cur.fetchone()
+            
+            config_value_json = json.dumps(request.config_value)
+            
+            if existing:
+                # Update existing config
+                cur.execute("""
+                    UPDATE admin_config
+                    SET config_value = %s::jsonb,
+                        description = COALESCE(%s, description),
+                        updated_by = %s,
+                        updated_at = TIMEZONE('utc', NOW())
+                    WHERE config_key = %s
+                    RETURNING *
+                """, (config_value_json, request.description, admin_email, config_key))
+            else:
+                # Create new config
+                cur.execute("""
+                    INSERT INTO admin_config (config_key, config_value, description, updated_by)
+                    VALUES (%s, %s::jsonb, %s, %s)
+                    RETURNING *
+                """, (config_key, config_value_json, request.description, admin_email))
+            
+            updated_config = cur.fetchone()
+            conn.commit()
+        
+        conn.close()
+        
+        return {
+            "success": True,
+            "message": f"Config '{config_key}' updated successfully",
+            "config": dict(updated_config)
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/config/{config_key}/per-user/{user_email}")
+def update_user_specific_limit(
+    config_key: str,
+    user_email: str,
+    limit: int = Query(..., description="New limit value"),
+    admin_email: str = Header(None, alias="X-Admin-Email")
+):
+    """
+    Update per-user limit for image generation
+    
+    Example: PUT /api/admin/config/max_allowed_image_generation/per-user/user@example.com?limit=20
+    """
+    verify_admin(admin_email)
+    
+    if config_key != "max_allowed_image_generation":
+        raise HTTPException(
+            status_code=400,
+            detail="This endpoint only supports 'max_allowed_image_generation' config key"
+        )
+    
+    try:
+        import psycopg
+        from psycopg.rows import dict_row
+        import os
+        import json
+        from dotenv import load_dotenv
+        
+        load_dotenv()
+        supabase_url = os.environ.get("SUPABASE_OG_URL")
+        if not supabase_url:
+            raise HTTPException(status_code=500, detail="Database configuration error")
+        
+        conn = psycopg.connect(supabase_url, row_factory=dict_row)
+        
+        with conn.cursor() as cur:
+            # Get current config
+            cur.execute("""
+                SELECT config_value FROM admin_config
+                WHERE config_key = %s
+            """, (config_key,))
+            
+            config_row = cur.fetchone()
+            if not config_row:
+                raise HTTPException(status_code=404, detail=f"Config key '{config_key}' not found")
+            
+            # Parse current config
+            current_config = config_row['config_value']
+            if isinstance(current_config, str):
+                current_config = json.loads(current_config)
+            
+            # Update per_user section
+            if 'per_user' not in current_config:
+                current_config['per_user'] = {}
+            
+            current_config['per_user'][user_email] = limit
+            
+            # Update database
+            cur.execute("""
+                UPDATE admin_config
+                SET config_value = %s::jsonb,
+                    updated_by = %s,
+                    updated_at = TIMEZONE('utc', NOW())
+                WHERE config_key = %s
+                RETURNING *
+            """, (json.dumps(current_config), admin_email, config_key))
+            
+            updated_config = cur.fetchone()
+            conn.commit()
+        
+        conn.close()
+        
+        return {
+            "success": True,
+            "message": f"User-specific limit for {user_email} updated to {limit}",
+            "config": dict(updated_config)
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
