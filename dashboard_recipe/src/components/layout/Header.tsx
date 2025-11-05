@@ -54,6 +54,12 @@ export default function Header({ session }: HeaderProps) {
               >
                 Top Recipes
               </Link>
+              <Link
+                href="/history"
+                className="text-white hover:text-orange-100 px-3 py-2 rounded-lg font-medium transition hover:bg-white/20"
+              >
+                History
+              </Link>
               <VegetarianToggle variant="navbar" />
             </div>
           )}
@@ -61,25 +67,16 @@ export default function Header({ session }: HeaderProps) {
           {/* User Info & Sign Out */}
           {session?.user && (
             <div className="flex items-center gap-4">
-              {/* Admin Links */}
+              {/* Admin Link */}
               {isAdmin && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Link
-                    href="/admin/image-generation"
-                    className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
-                    title="Image Generation Admin"
-                  >
-                    <FaCog /> <span className="hidden sm:inline">Image Admin</span>
-                  </Link>
-                  <Link
-                    href="/admin/recipe-admin"
-                    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
-                    title="Recipe Admin"
-                  >
-                    <span className="hidden sm:inline">🍳 Recipe Admin</span>
-                    <span className="sm:hidden">🍳</span>
-                  </Link>
-                </div>
+                <Link
+                  href="/admin"
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
+                  title="Admin Dashboard"
+                >
+                  <FaCog /> <span className="hidden sm:inline">Admin</span>
+                  <span className="sm:hidden">⚙️</span>
+                </Link>
               )}
 
               <div className="text-white text-right hidden sm:block">

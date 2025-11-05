@@ -3,7 +3,8 @@ Recipe API routes
 """
 
 from datetime import datetime
-from fastapi import APIRouter, HTTPException
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Header
 
 from models import (
     RecipeDetailRequest, 
@@ -25,7 +26,11 @@ def set_recommender(rec: RecipeRecommender):
     recommender = rec
 
 @router.post("/recipe/details", response_model=RecipeDetailResponse)
-async def get_recipe_details(request: RecipeDetailRequest, session_id: str):
+async def get_recipe_details(
+    request: RecipeDetailRequest, 
+    session_id: str,
+    user_email: Optional[str] = Header(None, alias="X-User-Email")
+):
     """
     Get detailed recipe instructions
     """
@@ -63,6 +68,37 @@ async def get_recipe_details(request: RecipeDetailRequest, session_id: str):
         session["tips"] = parsed["tips"]
         session["recipe_history"] = []  # Reset history for new recipe
         
+        # Save to Supabase
+        try:
+            from database.session_storage_service import get_session_storage_service
+            session_storage = get_session_storage_service()
+            
+            # Add user message to chat history
+            session_storage.add_chat_message(
+                session_id=session_id,
+                message_type="user_message",
+                content=f"Show me how to make {recipe_name}",
+                user_email=user_email
+            )
+            
+            # Add assistant response
+            assistant_response = f"Great choice! Let's cook {recipe_name}.\n\n**Ingredients:**\n{parsed['ingredients']}\n\n**Tips:**\n{parsed['tips']}\n\nClick \"Next Step\" to start cooking!"
+            session_storage.add_chat_message(
+                session_id=session_id,
+                message_type="chatbot_message",
+                content=assistant_response,
+                user_email=user_email
+            )
+            
+            # Update selected_recipe_name
+            session_storage.save_session(
+                session_id=session_id,
+                selected_recipe_name=recipe_name,
+                update_last_accessed=True
+            )
+        except Exception as db_error:
+            print(f"⚠️  Warning: Failed to save to Supabase: {db_error}")
+        
         return RecipeDetailResponse(
             recipe_name=recipe_name,
             ingredients=parsed["ingredients"],
@@ -77,7 +113,10 @@ async def get_recipe_details(request: RecipeDetailRequest, session_id: str):
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 @router.post("/step/next")
-async def next_step(session_id: str):
+async def next_step(
+    session_id: str,
+    user_email: Optional[str] = Header(None, alias="X-User-Email")
+):
     """
     Move to the next cooking step
     """
@@ -94,8 +133,23 @@ async def next_step(session_id: str):
         steps = session["recipe_steps"]
         
         if current_index >= len(steps):
+            # Save completion message
+            completion_message = "🎉 Congratulations! You've completed all steps!" + (f"\n\n{session.get('tips', '')}" if session.get('tips') else "")
+            try:
+                from database.session_storage_service import get_session_storage_service
+                session_storage = get_session_storage_service()
+                session_storage.add_chat_message(
+                    session_id=session_id,
+                    message_type="chatbot_message",
+                    content=completion_message,
+                    user_email=user_email
+                )
+            except Exception as db_error:
+                print(f"⚠️  Warning: Failed to save completion message: {db_error}")
+            
             return {
                 "step": None,
+                "current_step": None,
                 "step_number": current_index,
                 "total_steps": len(steps),
                 "completed": True,
@@ -116,8 +170,23 @@ async def next_step(session_id: str):
         }
         session["recipe_history"].append(history_entry)
         
+        # Save step to chat history
+        step_message = f"**Step {current_index + 1}/{len(steps)}:**\n{current_step}"
+        try:
+            from database.session_storage_service import get_session_storage_service
+            session_storage = get_session_storage_service()
+            session_storage.add_chat_message(
+                session_id=session_id,
+                message_type="chatbot_message",
+                content=step_message,
+                user_email=user_email
+            )
+        except Exception as db_error:
+            print(f"⚠️  Warning: Failed to save step to chat history: {db_error}")
+        
         return {
             "step": current_step,
+            "current_step": current_step,
             "step_number": current_index + 1,
             "total_steps": len(steps),
             "completed": False,

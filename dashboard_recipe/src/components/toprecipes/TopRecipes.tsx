@@ -129,12 +129,29 @@ export default function TopRecipes() {
         </div>
       )}
 
-      {/* Loading State */}
+      {/* Loading State - Skeleton Cards */}
       {loading && (
-        <div className="flex items-center justify-center py-20">
-          <div className="text-center">
-            <span className="loading loading-spinner loading-lg text-orange-500"></span>
-            <p className="mt-4 text-gray-600 dark:text-gray-400">Loading delicious recipes...</p>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {Array.from({ length: filters.page_size || 12 }).map((_, i) => (
+              <div
+                key={i}
+                className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden animate-pulse"
+              >
+                {/* Image skeleton */}
+                <div className="h-48 bg-gray-200 dark:bg-gray-700"></div>
+                {/* Content skeleton */}
+                <div className="p-4 space-y-3">
+                  <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+                  <div className="flex gap-2 mt-3">
+                    <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-16"></div>
+                    <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-16"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

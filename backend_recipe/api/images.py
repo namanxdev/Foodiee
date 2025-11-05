@@ -3,10 +3,13 @@ Image generation API routes - Gemini only
 Production-optimized for Gemini API image generation
 """
 
-from fastapi import APIRouter, HTTPException
+import os
+from fastapi import APIRouter, HTTPException, Header
 
 from models import ImageGenerationResponse
 from core import RecipeRecommender
+from core.s3_service import get_s3_service
+from database.session_storage_service import get_session_storage_service
 from helpers.image_helpers import validate_session_and_get_context, update_session_history
 
 router = APIRouter(prefix="/api", tags=["images"])
@@ -21,14 +24,47 @@ def set_recommender(rec: RecipeRecommender):
 
 
 @router.post("/step/gemini_image", response_model=ImageGenerationResponse)
-async def generate_gemini_image(session_id: str):
+async def generate_gemini_image(
+    session_id: str,
+    user_email: str = Header(..., alias="X-User-Email")
+):
     """
     Generate image for current cooking step using Gemini API
     
-    This endpoint uses Google's Gemini image generation for high-quality results.
+    This endpoint:
+    1. Checks user's image generation limit
+    2. Generates image using Gemini
+    3. Uploads to S3 in user_generated/ structure
+    4. Stores URL in session
+    5. Updates chat history
+    
     Requires GOOGLE_API_KEY to be configured.
     """
     try:
+        # Check image generation limit first
+        import psycopg
+        from psycopg.rows import dict_row
+        
+        supabase_url = os.getenv("SUPABASE_OG_URL")
+        if not supabase_url:
+            raise HTTPException(status_code=500, detail="Database not configured")
+        
+        with psycopg.connect(supabase_url, row_factory=dict_row) as conn:
+            with conn.cursor() as cursor:
+                # Call database function directly
+                cursor.execute("""
+                    SELECT * FROM check_image_generation_limit(%s)
+                """, (user_email,))
+                
+                limit_result = cursor.fetchone()
+                
+                if not limit_result or not limit_result['allowed']:
+                    message = f"You have reached your daily limit of {limit_result['max_allowed']} images. Please try again tomorrow."
+                    raise HTTPException(
+                        status_code=403,
+                        detail=message
+                    )
+        
         # Validate session and get context
         session, recipe_name, current_step, current_index = validate_session_and_get_context(session_id)
         
@@ -38,16 +74,70 @@ async def generate_gemini_image(session_id: str):
             current_step
         )
         
-        # Update session history
+        # Update in-memory session history (for backward compatibility)
         update_session_history(session, current_index, description)
+        
+        image_url = None
+        
+        # If image was generated, increment count FIRST (regardless of S3 upload)
+        if image_base64:
+            try:
+                # Increment generation count - do this FIRST after successful generation
+                with psycopg.connect(supabase_url) as conn:
+                    with conn.cursor() as cursor:
+                        cursor.execute("""
+                            SELECT increment_image_generation_count(%s) as success
+                        """, (user_email,))
+                        conn.commit()
+                        print(f"   ✅ Incremented image generation count for {user_email}")
+            except Exception as increment_error:
+                print(f"⚠️  Failed to increment image count: {increment_error}")
+                # Continue anyway - image was generated
+            
+            # Then upload to S3 and store in session
+            try:
+                # Upload to S3 using user_generated/ structure
+                s3_service = get_s3_service()
+                image_url = s3_service.upload_user_generated_step_image(
+                    user_email=user_email,
+                    session_id=session_id,
+                    dish_name=recipe_name,
+                    step_index=current_index,
+                    image_base64=image_base64
+                )
+                
+                # Store in Supabase session
+                session_storage = get_session_storage_service()
+                
+                # Add to chat history
+                session_storage.add_chat_message(
+                    session_id=session_id,
+                    message_type="generated_image",
+                    content=image_url,
+                    user_email=user_email
+                )
+                
+                # Add to image_urls
+                session_storage.add_image_url(
+                    session_id=session_id,
+                    image_url=image_url,
+                    step_index=current_index,
+                    step_description=current_step
+                )
+                
+            except Exception as s3_error:
+                print(f"⚠️  S3 upload failed: {s3_error}")
+                # Continue without S3 URL - return base64 instead
+                image_url = None
         
         # Return response
         if image_base64:
             return ImageGenerationResponse(
-                image_data=image_base64,
+                image_data=image_base64 if not image_url else None,  # Return URL if uploaded
                 description=description,
                 success=True,
-                generation_type="gemini"
+                generation_type="gemini",
+                image_url=image_url  # Include S3 URL if available
             )
         else:
             # Gemini failed - text only

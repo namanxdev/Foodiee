@@ -14,7 +14,8 @@ class StepImageRequest(BaseModel):
 
 class ImageGenerationResponse(BaseModel):
     """Response for image generation"""
-    image_data: Optional[str] = Field(None, description="Base64 encoded image data")
+    image_data: Optional[str] = Field(None, description="Base64 encoded image data (if not uploaded to S3)")
+    image_url: Optional[str] = Field(None, description="S3 URL of uploaded image (if uploaded)")
     description: str = Field(..., description="Description of the generated image")
     success: bool = Field(default=True, description="Whether generation was successful")
     generation_type: str = Field(..., description="Type of generation: 'gemini', 'text_only'")

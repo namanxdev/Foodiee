@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { FaGlobe, FaUtensils, FaClock, FaAllergies, FaThumbsDown, FaShoppingBasket } from "react-icons/fa";
 import { API_CONFIG } from "@/constants";
 import { useVegetarian } from "@/contexts/VegetarianContext";
@@ -11,6 +13,8 @@ interface PreferencesFormProps {
 
 export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
   const { isVegetarian } = useVegetarian();
+  const { data: session } = useSession();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     region: "",
@@ -44,15 +48,27 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
         is_vegetarian: isVegetarian, // Pass vegetarian preference to backend
       };
 
+      const headers: HeadersInit = { 
+        "Content-Type": "application/json",
+      };
+      
+      // Add user email if available
+      if (session?.user?.email) {
+        headers["X-User-Email"] = session.user.email;
+      }
+
       const response = await fetch(`${API_CONFIG.BASE_URL}/api/preferences`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(payload),
       });
 
       const data = await response.json();
       
       if (data.success) {
+        // Redirect to chat page with session_id in URL
+        router.push(`/chat?session_id=${data.session_id}`);
+        // Also call onSubmit for backward compatibility
         onSubmit(data.session_id, data.recommendations);
       } else {
         alert("Error getting recommendations");

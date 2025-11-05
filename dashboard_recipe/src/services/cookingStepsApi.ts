@@ -107,12 +107,19 @@ export async function skipSteps(sessionId: string): Promise<{ success: boolean }
  * Generate step image using Gemini
  */
 export async function generateStepImageGemini(
-  sessionId: string
+  sessionId: string,
+  userEmail?: string
 ): Promise<StepImageResponse> {
+  const headers: HeadersInit = {};
+  if (userEmail) {
+    headers['X-User-Email'] = userEmail;
+  }
+  
   return fetchAPI<StepImageResponse>(
     `${API_BASE_URL}/api/step/gemini_image?session_id=${sessionId}`,
     {
       method: 'POST',
+      headers,
     }
   );
 }
@@ -138,7 +145,8 @@ export async function generateStepImageSD(
 /**
  * Default image generation (uses Gemini)
  */
-export const generateStepImage = generateStepImageGemini;
+export const generateStepImage = (sessionId: string, userEmail?: string) => 
+  generateStepImageGemini(sessionId, userEmail);
 
 // ============================================================================
 // Export all functions
