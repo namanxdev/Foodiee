@@ -364,12 +364,13 @@ Return ONLY the JSON object, nothing else.""",
             )
             print(f"   ✅ LLM visual description: {visual_description[:100]}...")
             
-            # Build final positive prompt
+            # Build final positive prompt with enhanced sensory and camera details
             positive = (
                 f"Professional food photography: {visual_description}. "
-                f"Close-up kitchen scene with natural lighting from above. "
-                f"Sharp focus on textures and details. "
-                f"Realistic, in-progress cooking, NOT a finished plated dish."
+                f"Capture vivid colors, glistening textures, and any visible steam. "
+                f"Shoot from a slightly elevated three-quarter angle with shallow depth of field and soft background bokeh. "
+                f"Use warm directional lighting from the left to create gentle highlights on the ingredients. "
+                f"Keep the cooking vessel centered with ingredients layered prominently in the foreground and a minimal kitchen backdrop."
             )
         except Exception as e:
             print(f"⚠️  Visual enhancement failed: {e}, using fallback")
@@ -380,7 +381,13 @@ Return ONLY the JSON object, nothing else.""",
                 preparation_states=preparation_map
             )
             print(f"   📝 Rule-based description: {visual_description[:100]}...")
-            positive = f"Professional food photography: {visual_description}"
+            positive = (
+                f"Professional food photography: {visual_description}. "
+                f"Capture vivid colors, glistening textures, and any visible steam. "
+                f"Shoot from a slightly elevated three-quarter angle with shallow depth of field and soft background bokeh. "
+                f"Use warm directional lighting from the left to create gentle highlights on the ingredients. "
+                f"Keep the cooking vessel centered with ingredients layered prominently in the foreground and a minimal kitchen backdrop."
+            )
         
         # Build negative prompt using enhancer (avoids blocking oil/liquids)
         negative = self.visual_enhancer.add_negative_constraints(
