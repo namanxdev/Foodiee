@@ -5,7 +5,7 @@ Optimized for production use with Gemini API only
 
 import base64
 import os
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict
 
 from google import genai
 from google.genai import types
@@ -52,7 +52,8 @@ The image should be appetizing, well-lit, and show the dish in an attractive pre
     def generate_image(
         self,
         recipe_name: str,
-        step_description: str
+        step_description: str,
+        cumulative_prompt: Optional[str] = None
     ) -> Tuple[Optional[str], str]:
         """
         Generate image using Gemini API
@@ -60,15 +61,92 @@ The image should be appetizing, well-lit, and show the dish in an attractive pre
         Args:
             recipe_name: Name of the recipe
             step_description: Description of the cooking step
+            cumulative_prompt: Optional pre-generated prompt with cumulative state
             
         Returns:
             Tuple of (base64_image_string, prompt_used)
         """
-        # Generate the optimized prompt
-        image_prompt = self.generate_image_prompt(recipe_name, step_description)
+        # Use cumulative prompt if provided, otherwise generate standard prompt
+        if cumulative_prompt:
+            image_prompt = cumulative_prompt
+        else:
+            image_prompt = self.generate_image_prompt(recipe_name, step_description)
         
         # Generate with Gemini
         return self._generate_with_gemini(image_prompt)
+    
+    def generate_image_with_state(
+        self,
+        recipe_name: str,
+        step_description: str,
+        cumulative_state: Optional[Dict] = None
+    ) -> Tuple[Optional[str], str]:
+        """
+        Generate image with cumulative state context
+        
+        Args:
+            recipe_name: Name of the recipe
+            step_description: Description of the cooking step
+            cumulative_state: Dictionary containing cumulative recipe state
+            
+        Returns:
+            Tuple of (base64_image_string, prompt_used)
+        """
+        if cumulative_state:
+            # Build enhanced prompt with cumulative state
+            prompt = self._build_cumulative_prompt(
+                recipe_name, 
+                step_description, 
+                cumulative_state
+            )
+        else:
+            prompt = self.generate_image_prompt(recipe_name, step_description)
+        
+        return self._generate_with_gemini(prompt)
+    
+    def _build_cumulative_prompt(
+        self, 
+        recipe_name: str, 
+        step_description: str,
+        cumulative_state: Dict
+    ) -> str:
+        """
+        Build an enhanced prompt using cumulative state information
+        
+        Args:
+            recipe_name: Name of the recipe
+            step_description: Current step description
+            cumulative_state: Dictionary with state information
+            
+        Returns:
+            Enhanced prompt string
+        """
+        current_visual = cumulative_state.get("current_visual_state", "")
+        ingredients_added = cumulative_state.get("ingredients_added", [])
+        steps_completed = cumulative_state.get("steps_completed", 0)
+        
+        prompt = f"""Generate a high-quality, professional food photography image of {recipe_name}.
+
+CURRENT STATE OF THE DISH:
+{current_visual}
+
+COOKING PROGRESS:
+- Steps completed: {steps_completed}
+- Ingredients already in the dish: {', '.join(ingredients_added)}
+
+CURRENT STEP: {step_description}
+
+CRITICAL REQUIREMENTS:
+- HORIZONTAL landscape format (1024x680 aspect ratio)
+- Show the CUMULATIVE state - all ingredients added so far must be visible
+- The image must accurately reflect the current cooking stage
+- Professional, appetizing presentation with proper lighting
+- ABSOLUTELY NO TEXT, labels, captions, or watermarks
+- Focus on the cooking vessel and its contents
+
+The image must show exactly how the dish looks at THIS MOMENT in the cooking process."""
+        
+        return prompt
     
     def _generate_with_gemini(self, prompt: str) -> Tuple[Optional[str], str]:
         """
