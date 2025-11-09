@@ -112,8 +112,8 @@ if __name__ == "__main__":
         print()
         print("Next steps:")
         print("1. Restart backend: python3 main.py")
-        print("2. Test API endpoints at: http://localhost:8000/api/recipe-admin/")
-        print("3. Check statistics: http://localhost:8000/api/recipe-admin/statistics")
+        print("2. Test API endpoints at: http://localhost:8000/api/admin/")
+        print("3. Check statistics: http://localhost:8000/api/admin/statistics")
     else:
         print()
         print("="*60)

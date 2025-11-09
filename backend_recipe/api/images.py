@@ -4,7 +4,7 @@ Production-optimized for Gemini API image generation
 """
 
 import os
-from fastapi import APIRouter, HTTPException, Header, Request
+from fastapi import APIRouter, HTTPException, Header
 
 from models import ImageGenerationResponse
 from core import RecipeRecommender
@@ -25,7 +25,6 @@ def set_recommender(rec: RecipeRecommender):
 
 @router.post("/step/gemini_image", response_model=ImageGenerationResponse)
 async def generate_gemini_image(
-    request: Request,
     session_id: str,
     user_email: str = Header(..., alias="X-User-Email")
 ):
@@ -42,36 +41,29 @@ async def generate_gemini_image(
     Requires GOOGLE_API_KEY to be configured.
     """
     try:
-        # Skip limit check for localhost testing
-        is_localhost = request.client.host in ["127.0.0.1", "localhost", "::1"]
-        skip_limit_check = is_localhost or os.getenv("SKIP_IMAGE_LIMIT", "").lower() == "true"
+        # Check image generation limit first
+        import psycopg
+        from psycopg.rows import dict_row
         
-        if not skip_limit_check:
-            # Check image generation limit first
-            import psycopg
-            from psycopg.rows import dict_row
-            
-            supabase_url = os.getenv("SUPABASE_OG_URL")
-            if not supabase_url:
-                raise HTTPException(status_code=500, detail="Database not configured")
-            
-            with psycopg.connect(supabase_url, row_factory=dict_row) as conn:
-                with conn.cursor() as cursor:
-                    # Call database function directly
-                    cursor.execute("""
-                        SELECT * FROM check_image_generation_limit(%s)
-                    """, (user_email,))
-                    
-                    limit_result = cursor.fetchone()
-                    
-                    if not limit_result or not limit_result['allowed']:
-                        message = f"You have reached your daily limit of {limit_result['max_allowed']} images. Please try again tomorrow."
-                        raise HTTPException(
-                            status_code=403,
-                            detail=message
-                        )
-        else:
-            print(f"   ⚠️  Skipping image generation limit check for localhost testing (client: {request.client.host})")
+        supabase_url = os.getenv("SUPABASE_OG_URL")
+        if not supabase_url:
+            raise HTTPException(status_code=500, detail="Database not configured")
+        
+        with psycopg.connect(supabase_url, row_factory=dict_row) as conn:
+            with conn.cursor() as cursor:
+                # Call database function directly
+                cursor.execute("""
+                    SELECT * FROM check_image_generation_limit(%s)
+                """, (user_email,))
+                
+                limit_result = cursor.fetchone()
+                
+                if not limit_result or not limit_result['allowed']:
+                    message = f"You have reached your daily limit of {limit_result['max_allowed']} images. Please try again tomorrow."
+                    raise HTTPException(
+                        status_code=403,
+                        detail=message
+                    )
         
         # Validate session and get context
         session, recipe_name, current_step, current_index = validate_session_and_get_context(session_id)
@@ -142,7 +134,7 @@ async def generate_gemini_image(
         image_url = None
         
         # If image was generated, increment count FIRST (regardless of S3 upload)
-        if image_base64 and not skip_limit_check:
+        if image_base64:
             try:
                 # Increment generation count - do this FIRST after successful generation
                 import psycopg
@@ -157,10 +149,9 @@ async def generate_gemini_image(
             except Exception as increment_error:
                 print(f"⚠️  Failed to increment image count: {increment_error}")
                 # Continue anyway - image was generated
-        elif image_base64 and skip_limit_check:
-            print(f"   ⚠️  Skipping image count increment for localhost testing")
-            
-            # Then upload to S3 and store in session
+        
+        # Upload to S3 and store in session
+        if image_base64:
             try:
                 # Upload to S3 using user_generated/ structure
                 s3_service = get_s3_service()

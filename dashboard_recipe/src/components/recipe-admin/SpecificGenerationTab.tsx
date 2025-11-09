@@ -100,7 +100,7 @@ export function SpecificGenerationTab() {
 
     try {
       // Start generation job
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/recipe-admin/generate/create-new`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/admin/generate/create-new`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -131,7 +131,7 @@ export function SpecificGenerationTab() {
       // Poll for progress
       const pollInterval = setInterval(async () => {
         try {
-          const statusResponse = await fetch(`${API_CONFIG.BASE_URL}/api/recipe-admin/jobs/${jobId}`, {
+          const statusResponse = await fetch(`${API_CONFIG.BASE_URL}/api/admin/jobs/${jobId}`, {
             headers: {
               'X-Admin-Email': localStorage.getItem('adminEmail') || '',
             },
@@ -213,7 +213,7 @@ export function SpecificGenerationTab() {
               // Fetch the created recipe
               try {
                 const recipeResponse = await fetch(
-                  `${API_CONFIG.BASE_URL}/api/recipe-admin/recipes/${recipeId}`,
+                  `${API_CONFIG.BASE_URL}/api/admin/recipes/${recipeId}`,
                   {
                     headers: {
                       'X-Admin-Email': localStorage.getItem('adminEmail') || '',

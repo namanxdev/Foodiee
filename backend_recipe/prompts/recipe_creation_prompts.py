@@ -165,34 +165,8 @@ STYLE: High-end restaurant food photography, magazine-quality, highly detailed, 
 
 REMEMBER: Horizontal 1024x680 format, NO TEXT of any kind, focus on making the dish look irresistible."""
 
-
-def get_step_image_prompt(recipe_name: str, step_description: str) -> str:
-    """Generate prompt for a specific cooking step image"""
-    return f"""Generate a professional cooking process image for: {recipe_name}
-
-Step: {step_description}
-
-CRITICAL REQUIREMENTS (STRICTLY ENFORCE):
-1. IMAGE SIZE & ORIENTATION: MUST be HORIZONTAL format, aspect ratio 1024x680 pixels (landscape orientation)
-2. NO TEXT RULE: ABSOLUTELY NO text, labels, numbers, captions, watermarks, or any written elements on the image
-3. SHOW THE ACTION:
-   - Capture the specific cooking action described in the step
-   - Show hands/utensils performing the action (when relevant)
-   - Kitchen environment visible but not distracting
-   - Clear view of the food/ingredients being prepared
-   - Mid-action shot (not before/after, but during)
-
-4. PROFESSIONAL QUALITY:
-   - Excellent lighting (warm kitchen lighting)
-   - Sharp focus on main subject
-   - Clean, organized cooking space
-   - Realistic cooking scenario
-   - Professional food photography style
-   - Appropriate angle (overhead, side, or 45-degree)
-
-STYLE: Cooking tutorial photography, clear instruction, professional kitchen, realistic and achievable
-
-REMEMBER: Horizontal 1024x680 format, NO TEXT of any kind, show the cooking process clearly."""
+# Note: Step image prompts are now handled by core.step_image_prompt_generator
+# This ensures unified, cumulative state-based prompt generation across all flows
 
 
 # ============================================================================

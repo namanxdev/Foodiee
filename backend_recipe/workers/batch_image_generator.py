@@ -149,11 +149,14 @@ def generate_step_images_with_retry(
     steps: List[str],
     existing_step_images: List[dict],
     tracker: ProgressTracker,
-    step_type: str = "original"
+    step_type: str = "original",
+    ingredients: Optional[List[str]] = None
 ) -> List[dict]:
     """
-    Generate step images with cumulative context
+    Generate step images with cumulative state (unified prompt generator)
     Only generates missing images (when steps.length > step_images.length)
+    
+    Uses the same unified prompt generator as preferences flow for consistency.
     
     Args:
         recipe_id: Recipe ID
@@ -162,13 +165,17 @@ def generate_step_images_with_retry(
         existing_step_images: List of existing step image dicts [{url, step_index, generated_at}]
         tracker: Progress tracker for logging
         step_type: Type of step ('original', 'beginner', 'advanced')
+        ingredients: Optional list of ingredients (extracted from recipe if not provided)
         
     Returns:
         Complete list of step image dicts (existing + newly generated)
         Format: [{url: str, step_index: int, generated_at: str}]
     """
     from core.image_generator import ImageGenerator
+    from core.step_image_prompt_generator import create_prompt_generator_for_recipe
+    from core.top_recipes_service import get_recipe_by_id
     from config import llm
+    import json
     
     # Check if we need to generate more images
     existing_count = len(existing_step_images)
@@ -183,49 +190,64 @@ def generate_step_images_with_retry(
         )
         return existing_step_images
     
+    # Extract ingredients if not provided
+    if ingredients is None:
+        try:
+            recipe = get_recipe_by_id(recipe_id)
+            if recipe and recipe.ingredients:
+                # Parse ingredients from recipe
+                if isinstance(recipe.ingredients, str):
+                    ingredients_data = json.loads(recipe.ingredients)
+                else:
+                    ingredients_data = recipe.ingredients
+                
+                # Extract ingredient names
+                if isinstance(ingredients_data, list):
+                    ingredients = [ing.get('ingredient', ing.get('name', '')) if isinstance(ing, dict) else str(ing) 
+                                 for ing in ingredients_data if ing]
+                else:
+                    ingredients = []
+            else:
+                ingredients = []
+        except Exception as e:
+            tracker.log(
+                f"Could not extract ingredients: {e}, continuing without",
+                "WARNING",
+                recipe_id,
+                recipe_name
+            )
+            ingredients = []
+    
     tracker.log(
-        f"Generating {total_steps - existing_count} step images (have {existing_count}, need {total_steps})",
+        f"Generating {total_steps - existing_count} step images (have {existing_count}, need {total_steps}) using unified cumulative state",
         "INFO",
         recipe_id,
         recipe_name
     )
     
     try:
-        # Initialize image generator (sd_image_prompt is optional for Gemini)
+        # Initialize image generator
         image_gen = ImageGenerator(llm)
         s3_service = get_s3_service()
         new_step_images = list(existing_step_images)  # Copy existing step images
+        
+        # Create unified prompt generator with cumulative state
+        # Ensure LLM is initialized before creating generator
+        if llm is None:
+            raise RuntimeError("LLM not initialized in batch image generator")
+        prompt_generator = create_prompt_generator_for_recipe(recipe_name, ingredients, llm=llm)
         
         # Generate missing step images
         for step_idx in range(existing_count, total_steps):
             step_num = step_idx + 1  # 1-based indexing
             current_step = steps[step_idx]
             
-            # Create cumulative context (all steps up to current)
-            cumulative_context = "\n".join([
-                f"Step {i+1}: {steps[i]}" for i in range(step_num)
-            ])
-            
-            # Create prompt with cumulative context
-            prompt = f"""Generate a clear instructional cooking photo for {recipe_name}.
-
-Current step (Step {step_num} of {total_steps}):
-{current_step}
-
-Context (what has been done so far):
-{cumulative_context}
-
-CRITICAL REQUIREMENTS (STRICTLY ENFORCE):
-1. IMAGE SIZE & ORIENTATION: MUST be HORIZONTAL format, aspect ratio 1024x680 pixels (landscape orientation)
-2. NO TEXT RULE: ABSOLUTELY NO text, step numbers, labels, captions, watermarks, or any written elements
-
-Style: Clear, instructional cooking photo showing the specific action or state at this step.
-Focus: Show exactly what is described in Step {step_num}, NOT the final dish.
-Composition: Clean workspace, visible ingredients/tools, mid-cooking process, HORIZONTAL framing.
-
-STRICTLY FORBIDDEN: Any text, numbers, labels, overlays, watermarks, or written elements of any kind.
-
-Output: Horizontal landscape image (1024x680), completely text-free."""
+            # Generate prompt using unified generator with cumulative state
+            prompt, metadata = prompt_generator.generate_prompt(
+                step_index=step_idx,
+                step_description=current_step,
+                use_cumulative_state=True
+            )
             
             # Generate image
             def generate_step_image():

@@ -147,28 +147,5 @@ STRICTLY FORBIDDEN: Any text, recipe names, labels, numbers, captions, overlays,
 
 Output: Horizontal landscape image (1024x680), professional food photography style, vibrant colors, sharp focus, completely text-free."""
 
-# Step-by-step image prompts
-def get_step_image_prompt(recipe_name: str, step_number: int, step_text: str) -> str:
-    """Generate prompt for a specific step image"""
-    return f"""Create a clear, instructional image showing this cooking step in action.
-
-Recipe: {recipe_name}
-Step: {step_text}
-
-CRITICAL REQUIREMENTS (STRICTLY ENFORCE):
-1. IMAGE SIZE & ORIENTATION: MUST be HORIZONTAL format, aspect ratio 1024x680 pixels (landscape orientation)
-2. NO TEXT RULE: ABSOLUTELY NO text, step numbers, labels, captions, watermarks, or any written elements
-3. INSTRUCTIONAL CLARITY: Show the cooking action clearly and unambiguously
-
-The image should:
-- Clearly demonstrate the action described in the step
-- Show hands/tools performing the action in a natural way
-- Use good lighting to show details clearly
-- Have an instructional, how-to photography style
-- Be shot from an angle that shows the process clearly
-- Include relevant ingredients/tools in frame
-- Frame composition should be HORIZONTAL (wider than tall)
-
-STRICTLY FORBIDDEN: Any text, step numbers, labels, ingredient names, measurements, captions, UI elements, overlays, watermarks, or written elements of any kind.
-
-Output: Horizontal landscape image (1024x680), instructional photography style, clear and practical, completely text-free."""
+# Note: Step image prompts are now handled by core.step_image_prompt_generator
+# This ensures unified, cumulative state-based prompt generation across all flows
