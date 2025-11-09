@@ -42,6 +42,7 @@ export interface StepImageResponse {
   image_data: string | null;
   description: string;
   generation_type: string;
+  image_url?: string | null;
 }
 
 export interface IngredientAlternatives {
@@ -167,3 +168,5 @@ export interface CookingStepsProps {
   sessionId: string;
   onComplete: () => void;
 }
+
+export * from "./library";

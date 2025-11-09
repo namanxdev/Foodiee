@@ -23,6 +23,7 @@ export default function PreferencesPage() {
   const [sessionId, setSessionId] = useState("");
   const [recommendations, setRecommendations] = useState("");
   const [loading, setLoading] = useState(false);
+  const prefillIngredient = searchParams.get("prefill") ?? undefined;
 
   // Check for session_id in URL - redirect to /chat if found
   useEffect(() => {
@@ -95,7 +96,10 @@ export default function PreferencesPage() {
             <>
               {step === "preferences" && (
                 <>
-                  <PreferencesForm onSubmit={handlePreferencesSubmit} />
+                  <PreferencesForm
+                    onSubmit={handlePreferencesSubmit}
+                    prefillIngredient={prefillIngredient}
+                  />
                 </>
               )}
 
