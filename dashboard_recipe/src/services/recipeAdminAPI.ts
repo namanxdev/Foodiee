@@ -75,17 +75,28 @@ export const listRecipes = async (params: {
   limit?: number;
   cuisine?: string;
   validation_status?: string;
+  sort_by?: string;
+  sort_order?: string;
 }): Promise<ListRecipesResponse> => {
   const queryParams = new URLSearchParams();
   if (params.skip !== undefined) queryParams.set('skip', params.skip.toString());
   if (params.limit !== undefined) queryParams.set('limit', params.limit.toString());
   if (params.cuisine) queryParams.set('cuisine', params.cuisine);
   if (params.validation_status) queryParams.set('validation_status', params.validation_status);
+  if (params.sort_by) queryParams.set('sort_by', params.sort_by);
+  if (params.sort_order) queryParams.set('sort_order', params.sort_order);
 
   const response = await fetch(`${API_BASE_URL}/recipes?${queryParams}`, {
     headers: getHeaders(),
   });
   return handleResponse<ListRecipesResponse>(response);
+};
+
+export const getAvailableRegions = async (): Promise<{ success: boolean; regions: string[] }> => {
+  const response = await fetch(`${API_BASE_URL}/regions`, {
+    headers: getHeaders(),
+  });
+  return handleResponse<{ success: boolean; regions: string[] }>(response);
 };
 
 export const getRecipe = async (recipeId: number): Promise<SingleRecipeResponse> => {

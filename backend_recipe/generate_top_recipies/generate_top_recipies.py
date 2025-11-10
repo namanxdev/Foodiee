@@ -47,20 +47,13 @@ DB_PATH = os.path.join(BACKEND_DIR, "data", "top_recipes.db")
 RECIPES_PER_REGION = 30
 RECIPES_PER_BATCH = 10
 DELAY_BETWEEN_BATCHES = 3  # seconds
-MAX_RETRIES = 5
+MAX_RETRIES = 3
 INITIAL_RETRY_DELAY = 5  # seconds
 
-# Regions to generate recipes for
-REGIONS = [
-    "Indian",
-    "Chinese", 
-    "Italian",
-    "Mexican",
-    "Japanese",
-    "Mediterranean",
-    "Thai",
-    "Korean"
-]
+# Import regions from centralized constants
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+from constants import REGIONS
 
 # ============================================================
 # Database Helper Functions
@@ -274,10 +267,13 @@ def initialize_gemini():
     if not api_key:
         raise ValueError("GOOGLE_API_KEY not found in environment variables")
     
+    # max_retries=0 disables LangChain's internal retry
+    # We handle retries manually with MAX_RETRIES=3
     model = ChatGoogleGenerativeAI(
         model="gemini-2.5-flash",
         google_api_key=api_key,
-        temperature=0.7
+        temperature=0.7,
+        max_retries=0
     )
     return model
 

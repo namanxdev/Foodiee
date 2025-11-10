@@ -11,7 +11,11 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BACKEND_DIR = os.path.dirname(SCRIPT_DIR)
 DB_PATH = os.path.join(BACKEND_DIR, "data", "top_recipes.db")
 
-REGIONS = ["Indian", "Chinese", "Italian", "Mexican", "Japanese", "Mediterranean", "Thai", "Korean"]
+# Import regions from centralized constants
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+from constants import REGIONS
 TARGET_PER_REGION = 30
 
 def get_recipe_counts():

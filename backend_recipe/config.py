@@ -51,14 +51,18 @@ def initialize_ai_models():
         raise ValueError("GOOGLE_API_KEY not found in environment variables")
     
     # Initialize Gemini models
+    # max_retries=0 disables LangChain's internal retry to avoid infinite loops
+    # We handle retries manually in our retry_with_backoff function (3 attempts)
     llm = ChatGoogleGenerativeAI(
         model=os.environ.get("GEMINI_TEXT_MODEL", "gemini-2.0-flash-lite"),
-        google_api_key=GOOGLE_API_KEY
+        google_api_key=GOOGLE_API_KEY,
+        max_retries=0
     )
     
     vision_llm = ChatGoogleGenerativeAI(
         model=os.environ.get("GEMINI_VISION_MODEL", "gemini-2.0-flash-lite"),
-        google_api_key=GOOGLE_API_KEY
+        google_api_key=GOOGLE_API_KEY,
+        max_retries=0
     )
     
     embeddings = GoogleGenerativeAIEmbeddings(
@@ -176,7 +180,7 @@ def load_recipe_vector_store(pdf_directory="../Pdfs"):
                         AND collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = '{collection_name}')
                     """))
                     conn.commit()
-                    print(f"      ✅ Removed embeddings for: {pdf}")
+                    # print(f"      ✅ Removed embeddings for: {pdf}")
         except Exception as e:
             print(f"      ⚠️  Error removing old PDFs: {e}")
     
