@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { FaGlobe, FaUtensils, FaClock, FaAllergies, FaThumbsDown, FaShoppingBasket } from "react-icons/fa";
@@ -9,9 +9,10 @@ import { useVegetarian } from "@/contexts/VegetarianContext";
 
 interface PreferencesFormProps {
   onSubmit: (sessionId: string, recommendations: string) => void;
+  prefillIngredient?: string;
 }
 
-export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
+export default function PreferencesForm({ onSubmit, prefillIngredient }: PreferencesFormProps) {
   const { isVegetarian } = useVegetarian();
   const { data: session } = useSession();
   const router = useRouter();
@@ -23,7 +24,7 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
     time_available: "",
     allergies: [] as string[],
     dislikes: [] as string[],
-    available_ingredients: [] as string[],
+    available_ingredients: prefillIngredient ? [prefillIngredient] : ([] as string[]),
   });
 
   const [tempInput, setTempInput] = useState({
@@ -31,6 +32,21 @@ export default function PreferencesForm({ onSubmit }: PreferencesFormProps) {
     dislikes: "",
     ingredients: "",
   });
+
+  useEffect(() => {
+    const trimmed = prefillIngredient?.trim();
+    if (trimmed) {
+      setFormData((prev) => {
+        if (prev.available_ingredients.includes(trimmed)) {
+          return prev;
+        }
+        return {
+          ...prev,
+          available_ingredients: [...prev.available_ingredients, trimmed],
+        };
+      });
+    }
+  }, [prefillIngredient]);
 
   const regions = ["Indian", "Chinese", "Italian", "Mexican", "Japanese", "Mediterranean", "Thai", "Korean"];
   const tastes = ["Sweet", "Spicy", "Savory", "Sour", "Tangy", "Mild", "Rich"];
