@@ -8,7 +8,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 
 import AuthGate from "@/components/auth/AuthGate";
-import Header from "@/components/layout/Header";
+import { CinematicNav, CinematicFooter } from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -98,16 +98,17 @@ export default function HistoryPage() {
   const [pageSize] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const pageRef = useRef(page);
 
+  // Keep page ref in sync
   useEffect(() => {
-    if (session?.user?.email) {
-      void loadSessions();
-    }
-  }, [session, page]);
+    pageRef.current = page;
+  }, [page]);
 
-  const loadSessions = async () => {
+  const loadSessions = useCallback(async () => {
     if (!session?.user?.email) return;
 
     setLoading(true);
@@ -133,22 +134,39 @@ export default function HistoryPage() {
         setTotalCount(data.total_count || 0);
         setTotalPages(data.total_pages || 0);
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to load history");
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to load history";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  }, [session?.user?.email, page, pageSize]);
+
+  useEffect(() => {
+    if (session?.user?.email) {
+      void loadSessions();
+    }
+  }, [session?.user?.email, loadSessions]);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchTerm(searchInput);
+      if (pageRef.current !== 1) {
+        setPage(1);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   const handleSessionClick = (sessionId: string) => {
     router.push(`/chat?session_id=${sessionId}`);
   };
 
   const handleSearchChange = (value: string) => {
-    setSearchTerm(value);
-    if (page !== 1) {
-      setPage(1);
-    }
+    setSearchInput(value);
   };
 
   const filteredSessions = useMemo(() => {
@@ -190,11 +208,13 @@ export default function HistoryPage() {
     totalCount === 0 ? 0 : Math.min((page - 1) * pageSize + sessions.length, totalCount);
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(255,244,231,0.9),_rgba(255,232,205,0.55)_45%,_rgba(255,220,193,0.35)_70%,_transparent_100%)] dark:bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.95),_rgba(15,23,42,0.85)_60%,_rgba(15,23,42,0.7)_100%)]">
-      <Header session={session} />
+    <div className="flex min-h-screen flex-col bg-[#050505] text-white">
+      <CinematicNav status={status} />
 
       <AuthGate status={status}>
-        <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pb-16 pt-10 sm:px-6 lg:px-8">
+        <main className="relative flex flex-1">
+          <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(255,90,47,0.28)_0%,_rgba(15,15,15,0.94)_45%,_rgba(5,5,5,1)_100%)]" />
+          <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pb-16 pt-24 sm:px-6 lg:px-8">
           <section className="relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-orange-500 via-orange-400 to-rose-500 text-white shadow-[0_35px_120px_-25px_rgba(255,99,71,0.45)] dark:border-white/10">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.35),_rgba(255,255,255,0)_60%)]" />
             <div className="relative flex flex-col gap-8 px-8 py-10 sm:px-10 lg:px-12">
@@ -253,16 +273,16 @@ export default function HistoryPage() {
             </div>
           </section>
 
-          <Card className="border-border/60 bg-white/95 shadow-xl shadow-brand/20 backdrop-blur-sm dark:border-border/40 dark:bg-card/90">
+          <Card className="border-white/20 bg-white/[0.08] backdrop-blur-2xl shadow-2xl shadow-black/40 transition-all hover:bg-white/[0.12] hover:border-white/30 hover:shadow-orange-500/10">
             <CardHeader className="gap-6 pb-0">
               <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="rounded-2xl bg-brand-surface/80 p-3 text-primary shadow-inner">
+                  <div className="rounded-2xl bg-white/[0.08] backdrop-blur-2xl border border-white/20 p-3 text-orange-400 shadow-lg">
                     <UtensilsCrossed className="h-6 w-6" strokeWidth={1.6} />
                   </div>
                   <div>
-                    <CardTitle className="text-2xl font-semibold">Session Library</CardTitle>
-                    <CardDescription className="max-w-xl text-base">
+                    <CardTitle className="text-2xl font-semibold text-white">Session Library</CardTitle>
+                    <CardDescription className="max-w-xl text-base text-white/70">
                       Browse, filter, and reopen any cooking session. Your latest journeys appear
                       first.
                     </CardDescription>
@@ -271,9 +291,13 @@ export default function HistoryPage() {
                 <div className="flex items-center gap-2">
                   <Button
                     type="button"
-                    variant={viewMode === "list" ? "gradient" : "outline"}
+                    variant={viewMode === "grid" ? "gradient" : "outline"}
                     size="sm"
-                    className="gap-2"
+                    className={
+                      viewMode === "grid"
+                        ? "gap-2 bg-brand-gradient text-primary-foreground"
+                        : "gap-2 bg-white text-gray-900 hover:bg-white/90 border border-border/80"
+                    }
                     onClick={() => setViewMode("list")}
                   >
                     <LayoutList className="h-4 w-4" />
@@ -281,9 +305,13 @@ export default function HistoryPage() {
                   </Button>
                   <Button
                     type="button"
-                    variant={viewMode === "grid" ? "gradient" : "outline"}
+                    variant={viewMode === "list" ? "gradient" : "outline"}
                     size="sm"
-                    className="gap-2"
+                    className={
+                      viewMode === "list"
+                        ? "gap-2 bg-brand-gradient text-primary-foreground"
+                        : "gap-2 bg-white text-gray-900 hover:bg-white/90 border border-border/80"
+                    }
                     onClick={() => setViewMode("grid")}
                   >
                     <LayoutGrid className="h-4 w-4" />
@@ -293,12 +321,12 @@ export default function HistoryPage() {
               </div>
 
               <div className="relative">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60" />
                 <Input
-                  value={searchTerm}
+                  value={searchInput}
                   onChange={(event) => handleSearchChange(event.target.value)}
                   placeholder="Search by recipe name or session title..."
-                  className="h-12 rounded-2xl border border-border bg-white/95 pl-11 pr-4 text-base shadow-inner shadow-brand/10 dark:bg-card/80"
+                  className="h-12 rounded-2xl border border-white/20 bg-white/[0.08] pl-11 pr-4 text-base text-white placeholder:text-white/40 shadow-lg shadow-black/40 backdrop-blur-2xl transition-all hover:bg-white/[0.12] hover:border-white/30 focus:bg-white/[0.12] focus:border-white/30"
                 />
               </div>
             </CardHeader>
@@ -315,7 +343,7 @@ export default function HistoryPage() {
                   {Array.from({ length: viewMode === "grid" ? 4 : 3 }).map((_, index) => (
                     <div
                       key={`history-skeleton-${index}`}
-                      className="animate-pulse rounded-3xl border border-border/60 bg-muted/40 p-6 shadow-inner shadow-brand/10 dark:bg-muted/20"
+                      className="animate-pulse rounded-3xl border border-white/20 bg-white/[0.05] backdrop-blur-xl p-6 shadow-lg shadow-black/20"
                     >
                       <div className="flex items-center gap-4">
                         <div className="h-14 w-14 rounded-2xl bg-white/60 dark:bg-white/10" />
@@ -335,7 +363,7 @@ export default function HistoryPage() {
               )}
 
               {error && !loading && (
-                <div className="rounded-3xl border border-destructive/40 bg-destructive/10 px-8 py-10 text-center shadow-lg shadow-destructive/20 backdrop-blur-sm">
+                <div className="rounded-3xl border border-red-400/40 bg-red-500/10 backdrop-blur-xl px-8 py-10 text-center shadow-lg shadow-red-500/20">
                   <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-destructive/20 text-destructive shadow-inner shadow-destructive/30">
                     <HistoryIcon className="h-8 w-8" />
                   </div>
@@ -359,12 +387,12 @@ export default function HistoryPage() {
               )}
 
               {!loading && !error && displayedSessions.length === 0 && (
-                <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border/70 bg-muted/40 px-8 py-16 text-center shadow-inner shadow-brand/10 dark:border-border/50 dark:bg-muted/20">
-                  <HistoryIcon className="h-14 w-14 text-muted-foreground" strokeWidth={1.5} />
-                  <h3 className="mt-6 text-2xl font-semibold text-foreground">
+                <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-white/20 bg-white/[0.05] backdrop-blur-xl px-8 py-16 text-center shadow-lg shadow-black/20">
+                  <HistoryIcon className="h-14 w-14 text-white/60" strokeWidth={1.5} />
+                  <h3 className="mt-6 text-2xl font-semibold text-white">
                     {hasFilters ? "No sessions match your search" : "Your cooking journey awaits"}
                   </h3>
-                  <p className="mt-3 max-w-xl text-base text-muted-foreground">
+                  <p className="mt-3 max-w-xl text-base text-white/70">
                     {hasFilters
                       ? "Try adjusting your search keywords or clear the filters to see all sessions again."
                       : "Start exploring recipes with the assistant to build a history of personalized cooking sessions."}
@@ -375,6 +403,7 @@ export default function HistoryPage() {
                         type="button"
                         variant="outline"
                         size="sm"
+                        className="text-gray-900"
                         onClick={() => handleSearchChange("")}
                       >
                         Clear search
@@ -413,9 +442,9 @@ export default function HistoryPage() {
                 </div>
               )}
 
-              <div className="flex flex-col gap-4 border-t border-border/60 pt-6 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-col gap-4 border-t border-white/20 pt-6 text-sm text-white/70 md:flex-row md:items-center md:justify-between">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium text-foreground">Library status</span>
+                  <span className="font-medium text-white">Library status</span>
                   <span aria-hidden="true">•</span>
                   {hasFilters ? (
                     <span>
@@ -445,21 +474,21 @@ export default function HistoryPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="gap-2"
+                      className="gap-2 text-gray-900"
                       disabled={page === 1}
                       onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
                     >
                       <ArrowLeft className="h-4 w-4" />
                       Previous
                     </Button>
-                    <span className="rounded-full border border-border px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <span className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white/70">
                       Page {page} of {totalPages}
                     </span>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="gap-2"
+                      className="gap-2 text-gray-900"
                       disabled={page === totalPages}
                       onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
                     >
@@ -471,8 +500,13 @@ export default function HistoryPage() {
               </div>
             </CardContent>
           </Card>
+          </div>
         </main>
       </AuthGate>
+
+      <div className="px-6 pb-16 pt-10 sm:px-10 md:px-12 lg:px-16">
+        <CinematicFooter />
+      </div>
     </div>
   );
 }
@@ -517,21 +551,21 @@ function SessionCard({ sessionItem, onOpen, searchTerm }: SessionCardProps) {
           onOpen(sessionItem.session_id);
         }
       }}
-      className="group relative overflow-hidden border-border/60 bg-white/95 transition-all duration-300 hover:-translate-y-1 hover:border-orange-300 hover:shadow-2xl hover:shadow-brand/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-50 dark:bg-card/90"
+      className="group relative overflow-hidden border-white/20 bg-white/[0.08] backdrop-blur-2xl shadow-lg shadow-black/40 transition-all duration-300 hover:-translate-y-1 hover:bg-white/[0.12] hover:border-white/30 hover:shadow-2xl hover:shadow-orange-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-black/50"
     >
       <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-        <div className="absolute inset-0 bg-gradient-to-br from-orange-100/45 via-white/10 to-transparent dark:from-orange-500/15 dark:via-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 via-transparent to-orange-400/5 backdrop-blur-sm" />
       </div>
       <CardHeader className="relative flex flex-col gap-4 pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-4">
-          <div className="rounded-2xl bg-brand-surface/90 p-3 text-primary shadow-inner shadow-brand/30">
+          <div className="rounded-2xl bg-white/[0.08] backdrop-blur-2xl border border-white/20 p-3 text-orange-400 shadow-lg transition-all group-hover:bg-white/[0.12] group-hover:border-orange-400/30">
             <UtensilsCrossed className="h-5 w-5" strokeWidth={1.5} />
           </div>
           <div className="space-y-2">
-            <CardTitle className="text-xl font-semibold text-foreground">
+            <CardTitle className="text-xl font-semibold text-white">
               {renderHighlighted(title)}
             </CardTitle>
-            <CardDescription className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <CardDescription className="flex flex-wrap items-center gap-2 text-sm text-white/70">
               <Clock3 className="h-4 w-4" />
               Cooked {formatRelativeTime(sessionItem.last_accessed)}
               <span aria-hidden="true">•</span>
@@ -544,7 +578,7 @@ function SessionCard({ sessionItem, onOpen, searchTerm }: SessionCardProps) {
           type="button"
           size="sm"
           variant="ghost"
-          className="gap-2 text-sm text-foreground hover:text-foreground"
+          className="gap-2 text-sm text-white hover:text-white/90"
           onClick={(event) => {
             event.stopPropagation();
             onOpen(sessionItem.session_id);
@@ -555,43 +589,43 @@ function SessionCard({ sessionItem, onOpen, searchTerm }: SessionCardProps) {
         </Button>
       </CardHeader>
       <CardContent className="relative grid gap-6 sm:grid-cols-2">
-        <dl className="space-y-3">
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <CalendarDays className="h-4 w-4 text-primary" />
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 text-sm text-white/70">
+            <CalendarDays className="h-4 w-4 text-orange-400 flex-shrink-0" aria-hidden="true" />
             <div>
-              <dt className="font-medium text-foreground">Created</dt>
-              <dd>{formatDate(sessionItem.created_at)}</dd>
+              <div className="font-medium text-white">Created</div>
+              <div className="text-white/80">{formatDate(sessionItem.created_at)}</div>
             </div>
           </div>
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <HistoryIcon className="h-4 w-4 text-primary" />
+          <div className="flex items-center gap-3 text-sm text-white/70">
+            <HistoryIcon className="h-4 w-4 text-orange-400 flex-shrink-0" aria-hidden="true" />
             <div>
-              <dt className="font-medium text-foreground">Last accessed</dt>
-              <dd>{formatDate(sessionItem.last_accessed)}</dd>
+              <div className="font-medium text-white">Last accessed</div>
+              <div className="text-white/80">{formatDate(sessionItem.last_accessed)}</div>
             </div>
           </div>
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <Sparkles className="h-4 w-4 text-primary" />
+          <div className="flex items-center gap-3 text-sm text-white/70">
+            <Sparkles className="h-4 w-4 text-orange-400 flex-shrink-0" aria-hidden="true" />
             <div>
-              <dt className="font-medium text-foreground">Session ID</dt>
-              <dd className="font-mono text-xs text-muted-foreground/80">
+              <div className="font-medium text-white">Session ID</div>
+              <div className="font-mono text-xs text-white/60">
                 {sessionItem.session_id}
-              </dd>
+              </div>
             </div>
           </div>
-        </dl>
+        </div>
         <div className="flex flex-wrap items-start gap-3">
-          <Badge variant="glow" size="sm" className="gap-2 text-xs">
+          <Badge variant="glow" size="sm" className="gap-2 text-xs border-blue-400/40 bg-blue-500/20 text-blue-200 shadow-blue-500/20">
             <MessageCircle className="h-3.5 w-3.5" />
             {sessionItem.message_count} messages
           </Badge>
           {sessionItem.image_count > 0 && (
-            <Badge variant="glow" size="sm" className="gap-2 text-xs">
+            <Badge variant="glow" size="sm" className="gap-2 text-xs border-purple-400/40 bg-purple-500/20 text-purple-200 shadow-purple-500/20">
               <ImageIcon className="h-3.5 w-3.5" />
               {sessionItem.image_count} images
             </Badge>
           )}
-          <Badge variant="outline" size="sm" className="gap-2 text-xs">
+          <Badge variant="outline" size="sm" className="gap-2 text-xs border-white/20 text-white/70">
             <Clock3 className="h-3.5 w-3.5" />
             Updated {formatRelativeTime(sessionItem.last_accessed)}
           </Badge>
