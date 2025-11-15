@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import React from "react";
+import { usePathname } from "next/navigation";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { GlowingButton } from "@/components/ui/GlowingButton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { LogOut, User, Settings } from "lucide-react";
+import { LogOut, User, Settings, ChefHat } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface CinematicNavProps {
   status: "authenticated" | "loading" | "unauthenticated";
@@ -14,13 +16,14 @@ export interface CinematicNavProps {
 
 export function CinematicNav({ status }: CinematicNavProps) {
   const { data: session } = useSession();
+  const pathname = usePathname();
 
   return (
     <header className="fixed inset-x-0 top-4 z-40">
-      <nav className="mx-auto flex max-w-6xl items-center justify-between rounded-full border border-white/15 bg-black/60 px-6 py-4 text-white backdrop-blur-2xl sm:px-8">
+      <nav className="mx-auto flex max-w-7xl items-center justify-between rounded-full border border-white/15 bg-black/60 px-8 py-3 text-white backdrop-blur-2xl sm:px-10 lg:px-12">
         <Link href="/" className="group flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[#FF5A2F] to-[#FFD07F] text-lg font-black text-[#1E1E1E] shadow-[0_12px_30px_-15px_rgba(255,90,47,0.7)]">
-            F
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[#FF5A2F] to-[#FFD07F] text-[#1E1E1E] shadow-[0_12px_30px_-15px_rgba(255,90,47,0.7)] transition-transform duration-300 group-hover:scale-110">
+            <ChefHat className="h-5 w-5" strokeWidth={2.5} />
           </span>
           <div className="text-sm">
             <p className="font-semibold tracking-wide text-white group-hover:text-[#FFD07F] transition-colors">
@@ -33,13 +36,37 @@ export function CinematicNav({ status }: CinematicNavProps) {
         </Link>
 
         <div className="hidden items-center gap-6 text-xs uppercase tracking-[0.4em] text-white/70 md:flex">
-          <Link href="/preferences" className="transition hover:text-[#FFD07F]">
+          <Link 
+            href="/preferences" 
+            className={cn(
+              "transition-all duration-300 px-4 py-2 rounded-full",
+              pathname === "/preferences"
+                ? "bg-[#FFD07F]/20 text-[#FFD07F] border border-[#FFD07F]/40 shadow-[0_0_15px_rgba(255,208,127,0.3)]"
+                : "text-white/70 hover:text-[#FFD07F]"
+            )}
+          >
             Preferences
           </Link>
-          <Link href="/history" className="transition hover:text-[#FFD07F]">
+          <Link 
+            href="/history" 
+            className={cn(
+              "transition-all duration-300 px-4 py-2 rounded-full",
+              pathname === "/history"
+                ? "bg-[#FFD07F]/20 text-[#FFD07F] border border-[#FFD07F]/40 shadow-[0_0_15px_rgba(255,208,127,0.3)]"
+                : "text-white/70 hover:text-[#FFD07F]"
+            )}
+          >
             History
           </Link>
-          <Link href="/top-recipes" className="transition hover:text-[#FFD07F]">
+          <Link 
+            href="/top-recipes" 
+            className={cn(
+              "transition-all duration-300 px-4 py-2 rounded-full",
+              pathname === "/top-recipes"
+                ? "bg-[#FFD07F]/20 text-[#FFD07F] border border-[#FFD07F]/40 shadow-[0_0_15px_rgba(255,208,127,0.3)]"
+                : "text-white/70 hover:text-[#FFD07F]"
+            )}
+          >
             Top Recipes
           </Link>
         </div>

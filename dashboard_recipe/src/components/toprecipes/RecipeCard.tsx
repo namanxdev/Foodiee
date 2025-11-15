@@ -38,7 +38,7 @@ export default function RecipeCard({ recipe, onClick }: RecipeCardProps) {
         )}
         
         {/* Difficulty Badge */}
-        <div className="absolute top-3 right-3">
+        <div className="absolute top-3 right-3 pointer-events-none">
           <Badge 
             variant="glow"
             className={`rounded-full text-xs font-semibold border ${
@@ -55,7 +55,7 @@ export default function RecipeCard({ recipe, onClick }: RecipeCardProps) {
 
         {/* Rating Badge */}
         {recipe.rating > 0 && (
-          <div className="absolute bottom-3 left-3 rounded-full border border-white/20 bg-white/[0.15] backdrop-blur-md px-3 py-1.5 flex items-center gap-1.5 shadow-lg shadow-black/20">
+          <div className="absolute bottom-3 left-3 rounded-full border border-white/20 bg-white/[0.15] backdrop-blur-md px-3 py-1.5 flex items-center gap-1.5 shadow-lg shadow-black/20 pointer-events-none">
             <Star className="h-4 w-4 fill-[#FFD07F] text-[#FFD07F]" />
             <span className="text-sm font-bold text-white">
               {recipe.rating.toFixed(1)}

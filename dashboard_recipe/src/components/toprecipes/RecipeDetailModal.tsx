@@ -22,9 +22,15 @@ export default function RecipeDetailModal({ recipeId, onClose }: RecipeDetailMod
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
 
   useEffect(() => {
+    // Reset state when recipeId changes
+    setRecipe(null);
+    setError(null);
+    setCompletedSteps([]);
+    setActiveTab('ingredients');
+    
     if (recipeId) {
       setLoading(true);
-      setError(null);
+      
       fetchRecipeById(recipeId)
         .then((data) => {
           setRecipe(data);
@@ -33,7 +39,10 @@ export default function RecipeDetailModal({ recipeId, onClose }: RecipeDetailMod
         .catch((err) => {
           setError(err.message);
           setLoading(false);
+          setRecipe(null);
         });
+    } else {
+      setLoading(false);
     }
   }, [recipeId]);
 

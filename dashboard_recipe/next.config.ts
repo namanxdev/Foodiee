@@ -23,6 +23,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "lh3.googleusercontent.com",
       },
+      {
+        protocol: "https",
+        hostname: "oldowan-recipe-images-2025.s3.ap-south-1.amazonaws.com",
+      },
     ],
   },
 };
