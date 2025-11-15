@@ -60,7 +60,7 @@ export function MassGenerationTab() {
         // Fetch job details periodically
         const interval = setInterval(async () => {
           try {
-            const jobs = await fetch(`${API_CONFIG.BASE_URL}/api/recipe-admin/jobs?limit=1`, {
+            const jobs = await fetch(`${API_CONFIG.BASE_URL}/api/admin/jobs?limit=1`, {
               headers: { 'X-Admin-Email': localStorage.getItem('adminEmail') || '' },
             }).then(r => r.json());
             
@@ -141,8 +141,8 @@ export function MassGenerationTab() {
             <input
               type="number"
               value={recipeCount}
-              onChange={(e) => setRecipeCount(parseInt(e.target.value) || 10)}
-              min="1"
+              onChange={(e) => setRecipeCount(parseInt(e.target.value))}
+              
               max="500"
               className="w-full px-4 py-2 rounded-lg bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={isRunning}
@@ -258,8 +258,12 @@ export function MassGenerationTab() {
                   {log.metadata && typeof log.metadata === 'object' && 'prompt' in log.metadata && log.metadata.prompt && (
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(log.metadata.prompt as string);
-                        alert('Prompt copied to clipboard!');
+                        if (log.metadata && typeof log.metadata === 'object' && 'prompt' in log.metadata && log.metadata.prompt) {
+                          navigator.clipboard.writeText(log.metadata.prompt as string);
+                          alert('Prompt copied to clipboard!');
+                        } else {
+                          alert('No prompt available to copy.');
+                        }
                       }}
                       className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors whitespace-nowrap"
                       title="Copy full prompt"

@@ -274,13 +274,18 @@ class RecipeCreationService:
             
             # Generate step images
             if generate_step_images:
+                # Extract ingredient names for cumulative state
+                ingredient_names = [ing.get('ingredient', ing.get('name', '')) if isinstance(ing, dict) else str(ing) 
+                                  for ing in ingredients if ing]
+                
                 self._log(f"Generating beginner step images ({len(steps_beginner)} steps)")
                 images['beginner_images'] = self.regen_service.generate_step_images(
                     recipe_id=recipe_id,
                     recipe_name=recipe_name,
                     steps=steps_beginner,
                     existing_step_images=[],
-                    step_type="beginner"
+                    step_type="beginner",
+                    ingredients=ingredient_names
                 )
                 
                 self._log(f"Generating advanced step images ({len(steps_advanced)} steps)")
@@ -289,7 +294,8 @@ class RecipeCreationService:
                     recipe_name=recipe_name,
                     steps=steps_advanced,
                     existing_step_images=[],
-                    step_type="advanced"
+                    step_type="advanced",
+                    ingredients=ingredient_names
                 )
             else:
                 self._log("Skipping step images generation", "INFO")
@@ -369,13 +375,18 @@ class RecipeCreationService:
             advanced_images = []
             
             if generate_step_images:
+                # Extract ingredient names for cumulative state
+                ingredient_names = [ing.get('ingredient', ing.get('name', '')) if isinstance(ing, dict) else str(ing) 
+                                  for ing in ingredients if ing]
+                
                 self._log(f"Generating beginner step images ({len(beginner_steps)} steps)")
                 beginner_images = self.regen_service.generate_step_images(
                     recipe_id=-1,
                     recipe_name=recipe_name,
                     steps=beginner_steps,
                     existing_step_images=[],
-                    step_type="beginner"
+                    step_type="beginner",
+                    ingredients=ingredient_names
                 )
                 
                 self._log(f"Generating advanced step images ({len(advanced_steps)} steps)")
@@ -384,7 +395,8 @@ class RecipeCreationService:
                     recipe_name=recipe_name,
                     steps=advanced_steps,
                     existing_step_images=[],
-                    step_type="advanced"
+                    step_type="advanced",
+                    ingredients=ingredient_names
                 )
             else:
                 self._log("Skipping step images generation", "INFO")

@@ -235,7 +235,8 @@ def process_single_recipe(
             recipe_name,
             error_details={"error": error_msg, "traceback": traceback.format_exc()}
         )
-        return False
+        # Re-raise to allow upstream handler to track rate limits and terminate if needed
+        raise
 
 
 # ============================================================================
@@ -589,6 +590,8 @@ def start_recipe_regeneration(
         successful = 0
         failed = 0
         skipped = 0
+        consecutive_rate_limit_failures = 0
+        MAX_CONSECUTIVE_RATE_LIMIT_FAILURES = 3
         
         for i, recipe in enumerate(recipes):
             # Check if job was cancelled
@@ -601,32 +604,81 @@ def start_recipe_regeneration(
                 )
                 break
             
+            # Check if too many consecutive rate limit failures
+            if consecutive_rate_limit_failures >= MAX_CONSECUTIVE_RATE_LIMIT_FAILURES:
+                error_message = f"Rate limit exceeded after {consecutive_rate_limit_failures} consecutive failures"
+                tracker.log(
+                    f"Terminating job: {error_message}",
+                    "ERROR"
+                )
+                tracker.complete_job('failed', error_message)
+                return {
+                    "success": False,
+                    "message": error_message,
+                    "job_id": job_id,
+                    "stats": {
+                        "total": len(recipes),
+                        "successful": successful,
+                        "skipped": skipped,
+                        "failed": failed
+                    }
+                }
+            
             tracker.log(
                 f"Processing recipe {i+1}/{len(recipes)}",
                 "INFO",
                 metadata={"progress": f"{i+1}/{len(recipes)}"}
             )
             
-            changed = process_single_recipe(
-                recipe,
-                service,
-                tracker,
-                fix_main_image,
-                fix_ingredients_image,
-                fix_steps_images,
-                fix_steps_text,
-                fix_ingredients_text
-            )
-            
-            if changed:
-                successful += 1
-            else:
-                skipped += 1
+            try:
+                changed = process_single_recipe(
+                    recipe,
+                    service,
+                    tracker,
+                    fix_main_image,
+                    fix_ingredients_image,
+                    fix_steps_images,
+                    fix_steps_text,
+                    fix_ingredients_text
+                )
+                
+                if changed:
+                    successful += 1
+                    # Reset consecutive failure counter on success
+                    consecutive_rate_limit_failures = 0
+                else:
+                    skipped += 1
+                
+            except Exception as e:
+                error_msg = str(e)
+                is_rate_limit_error = "429" in error_msg or "rate limit" in error_msg.lower() or "quota" in error_msg.lower()
+                
+                tracker.log(
+                    f"Failed to process recipe due to error: {error_msg}",
+                    "ERROR",
+                    recipe['id'],
+                    recipe.get('name', 'Unknown'),
+                    error_details={"error": error_msg, "is_rate_limit": is_rate_limit_error}
+                )
+                
+                failed += 1
+                
+                # Track consecutive rate limit failures
+                if is_rate_limit_error:
+                    consecutive_rate_limit_failures += 1
+                    tracker.log(
+                        f"Rate limit error detected ({consecutive_rate_limit_failures}/{MAX_CONSECUTIVE_RATE_LIMIT_FAILURES})",
+                        "WARNING"
+                    )
+                else:
+                    # Reset counter if it's not a rate limit error
+                    consecutive_rate_limit_failures = 0
             
             tracker.update_progress(
                 processed=1,
                 successful=successful,
                 skipped=skipped,
+                failed=failed,
                 last_processed_recipe_id=recipe['id']
             )
             

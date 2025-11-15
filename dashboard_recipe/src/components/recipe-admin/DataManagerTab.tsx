@@ -9,6 +9,7 @@
 import { useState, useEffect } from 'react';
 import { listRecipes, updateRecipe, getStatistics, searchRecipes, deleteRecipe } from '@/services/recipeAdminAPI';
 import type { Recipe, RecipeStatistics, StepImage, Ingredient } from '@/types/recipeAdmin';
+import { REGIONS } from '@/constants/regions';
 
 // Image Modal Component
 function ImageModal({ imageUrl, onClose }: { imageUrl: string; onClose: () => void }) {
@@ -214,6 +215,10 @@ export function DataManagerTab() {
   const [pageSize, setPageSize] = useState(20);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<string>('');
+  const [regionFilter, setRegionFilter] = useState<string>('');
+  const [sortBy, setSortBy] = useState<string>('');
+  const [sortOrder, setSortOrder] = useState<string>('asc');
+  const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<Recipe[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -223,7 +228,7 @@ export function DataManagerTab() {
   useEffect(() => {
     loadRecipes();
     loadStatistics();
-  }, [page, pageSize, filter]);
+  }, [page, pageSize, filter, regionFilter, sortBy, sortOrder]);
 
   const loadRecipes = async () => {
     try {
@@ -232,6 +237,9 @@ export function DataManagerTab() {
         skip: page * pageSize,
         limit: pageSize,
         validation_status: filter || undefined,
+        cuisine: regionFilter || undefined,
+        sort_by: sortBy || undefined,
+        sort_order: sortOrder || undefined,
       });
       setRecipes(response.recipes);
     } catch (error) {
@@ -275,6 +283,14 @@ export function DataManagerTab() {
     setSearchQuery('');
     setSearchResults([]);
     setIsSearching(false);
+  };
+
+  const clearFilters = () => {
+    setFilter('');
+    setRegionFilter('');
+    setSortBy('');
+    setSortOrder('asc');
+    setPage(0);
   };
 
   const handleDelete = async () => {
@@ -374,20 +390,99 @@ export function DataManagerTab() {
               )}
             </div>
 
-            {/* Filter */}
+            {/* Filters Toggle Button */}
             {!isSearching && (
-              <div className="space-y-2">
-                <label className="text-xs text-gray-400">Filter by Status:</label>
-                <select
-                  value={filter}
-                  onChange={(e) => { setFilter(e.target.value); setPage(0); }}
-                  className="w-full px-3 py-2 rounded bg-gray-700 text-sm border border-gray-600"
-                >
-                  <option value="">All Status</option>
-                  <option value="pending">Pending</option>
-                  <option value="validated">Validated</option>
-                  <option value="needs_fixing">Needs Fixing</option>
-                </select>
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="w-full px-3 py-2 rounded bg-gray-700 hover:bg-gray-600 text-sm font-semibold flex items-center justify-between border border-gray-600"
+              >
+                <span>🔍 Filters & Sorting</span>
+                <span>{showFilters ? '▲' : '▼'}</span>
+              </button>
+            )}
+
+            {/* Collapsible Filter Panel */}
+            {!isSearching && showFilters && (
+              <div className="space-y-3 p-3 bg-gray-750 rounded border border-gray-600">
+                {/* Region Filter */}
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Filter by Region:</label>
+                  <select
+                    value={regionFilter}
+                    onChange={(e) => { setRegionFilter(e.target.value); setPage(0); }}
+                    className="w-full px-3 py-2 rounded bg-gray-700 text-sm border border-gray-600"
+                  >
+                    <option value="">All Regions</option>
+                    {REGIONS.map(region => (
+                      <option key={region} value={region}>{region}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Status Filter */}
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Filter by Status:</label>
+                  <select
+                    value={filter}
+                    onChange={(e) => { setFilter(e.target.value); setPage(0); }}
+                    className="w-full px-3 py-2 rounded bg-gray-700 text-sm border border-gray-600"
+                  >
+                    <option value="">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="validated">Validated</option>
+                    <option value="needs_fixing">Needs Fixing</option>
+                  </select>
+                </div>
+
+                {/* Sort By */}
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Sort By:</label>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => { setSortBy(e.target.value); setPage(0); }}
+                    className="w-full px-3 py-2 rounded bg-gray-700 text-sm border border-gray-600"
+                  >
+                    <option value="">Default</option>
+                    <option value="name">Recipe Name</option>
+                    <option value="id">Recipe ID</option>
+                    <option value="region">Region</option>
+                  </select>
+                </div>
+
+                {/* Sort Order */}
+                {sortBy && (
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Sort Order:</label>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setSortOrder('asc')}
+                        className={`flex-1 px-3 py-2 rounded text-sm font-semibold ${
+                          sortOrder === 'asc' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'
+                        }`}
+                      >
+                        ↑ Ascending
+                      </button>
+                      <button
+                        onClick={() => setSortOrder('desc')}
+                        className={`flex-1 px-3 py-2 rounded text-sm font-semibold ${
+                          sortOrder === 'desc' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'
+                        }`}
+                      >
+                        ↓ Descending
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Clear Filters Button */}
+                {(filter || regionFilter || sortBy) && (
+                  <button
+                    onClick={clearFilters}
+                    className="w-full px-3 py-2 rounded bg-red-600 hover:bg-red-700 text-sm font-semibold"
+                  >
+                    ✕ Clear All Filters
+                  </button>
+                )}
               </div>
             )}
           </div>

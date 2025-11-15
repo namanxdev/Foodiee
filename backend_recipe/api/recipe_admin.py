@@ -17,6 +17,7 @@ from fastapi import APIRouter, HTTPException, Header, Query
 from pydantic import BaseModel
 
 from core.top_recipes_service import get_top_recipes, get_recipe_by_id, update_recipe
+from constants import REGIONS
 from workers.recipe_regeneration_worker import (
     start_recipe_regeneration,
     get_job_status,
@@ -118,16 +119,20 @@ def list_recipes(
     limit: int = 50,
     cuisine: Optional[str] = None,
     validation_status: Optional[str] = None,
+    sort_by: Optional[str] = None,
+    sort_order: Optional[str] = "asc",
     admin_email: str = Header(None, alias="X-Admin-Email")
 ):
     """
-    List recipes with pagination and filters
+    List recipes with pagination, filters, and sorting
     
     Query params:
     - skip: Number of recipes to skip (default: 0)
     - limit: Number of recipes to return (default: 50, max: 200)
-    - cuisine: Filter by cuisine
+    - cuisine: Filter by cuisine/region
     - validation_status: Filter by validation status ('pending', 'validated', 'needs_fixing')
+    - sort_by: Sort by field ('name', 'id', 'region', 'created_at', etc.)
+    - sort_order: Sort order ('asc' or 'desc', default: 'asc')
     """
     verify_admin(admin_email)
     
@@ -155,6 +160,20 @@ def list_recipes(
         
         if validation_status:
             filtered_recipes = [r for r in filtered_recipes if r.get('validation_status') == validation_status]
+        
+        # Apply sorting
+        if sort_by:
+            reverse = sort_order.lower() == 'desc'
+            try:
+                # Handle sorting with None values
+                filtered_recipes = sorted(
+                    filtered_recipes,
+                    key=lambda x: (x.get(sort_by) is None, x.get(sort_by, '')),
+                    reverse=reverse
+                )
+            except Exception as e:
+                # If sorting fails, log it but don't break the request
+                print(f"Warning: Could not sort by {sort_by}: {e}")
         
         # Calculate statistics
         total = len(filtered_recipes)
@@ -185,6 +204,24 @@ def list_recipes(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/regions")
+def get_available_regions(
+    admin_email: str = Header(None, alias="X-Admin-Email")
+):
+    """
+    Get list of available regions/cuisines
+    
+    Returns:
+    - List of region names
+    """
+    verify_admin(admin_email)
+    
+    return {
+        "success": True,
+        "regions": REGIONS
+    }
 
 
 @router.get("/recipes/{recipe_id}")
