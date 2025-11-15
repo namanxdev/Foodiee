@@ -8,8 +8,24 @@
 // API Configuration
 // ============================================================================
 
+/**
+ * Normalize API URL to handle SSL certificate issues
+ * Converts HTTPS EC2 URLs to HTTP if they don't have valid certificates
+ */
+function normalizeApiUrl(url: string | undefined): string {
+  if (!url) return "http://localhost:8000";
+  
+  // If it's an EC2 instance URL with HTTPS, convert to HTTP
+  // EC2 instances typically don't have valid SSL certificates unless configured
+  if (url.startsWith("https://") && url.includes("ec2-") && url.includes(".compute.amazonaws.com")) {
+    return url.replace("https://", "http://");
+  }
+  
+  return url;
+}
+
 export const API_CONFIG = {
-  BASE_URL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
+  BASE_URL: normalizeApiUrl(process.env.NEXT_PUBLIC_API_URL),
   TIMEOUT: 30000, // 30 seconds
 } as const;
 
