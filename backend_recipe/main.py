@@ -43,7 +43,8 @@ from fastapi.middleware.cors import CORSMiddleware
 # Example: "https://your-frontend.vercel.app" or "https://your-domain.com"
 ALLOWED_ORIGINS = [
     "http://localhost:3000",      # Local development
-    "http://127.0.0.1:3000",      # Local development alternative
+    "http://127.0.0.1:3000",
+    "https://foodiee-six-lac.vercel.app/"      # Local development alternative
     # Add your production frontend URL here after deployment:
     # "https://your-frontend.vercel.app",
     # "https://ec2-3-110-140-242.ap-south-1.compute.amazonaws.com",  # If frontend is on same EC2
