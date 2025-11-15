@@ -1,19 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
-import { SessionStatus } from "next-auth";
+import React from "react";
+import { useSession, signIn, signOut } from "next-auth/react";
 import { GlowingButton } from "@/components/ui/GlowingButton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { LogOut, User, Settings } from "lucide-react";
 
 export interface CinematicNavProps {
-  status: SessionStatus;
+  status: "authenticated" | "loading" | "unauthenticated";
 }
 
 export function CinematicNav({ status }: CinematicNavProps) {
-  const authLabel = useMemo(
-    () => (status === "authenticated" ? "Dashboard" : "Sign in"),
-    [status]
-  );
+  const { data: session } = useSession();
 
   return (
     <header className="fixed inset-x-0 top-4 z-40">
@@ -36,9 +36,6 @@ export function CinematicNav({ status }: CinematicNavProps) {
           <Link href="/preferences" className="transition hover:text-[#FFD07F]">
             Preferences
           </Link>
-          <Link href="/chat" className="transition hover:text-[#FFD07F]">
-            Chat
-          </Link>
           <Link href="/history" className="transition hover:text-[#FFD07F]">
             History
           </Link>
@@ -48,12 +45,109 @@ export function CinematicNav({ status }: CinematicNavProps) {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link
-            href="/auth/sign-in"
-            className="hidden rounded-full border border-white/20 px-5 py-2 text-xs uppercase tracking-[0.4em] text-white/75 transition hover:border-[#FFD07F]/60 hover:text-[#FFD07F] md:inline-flex"
-          >
-            {authLabel}
-          </Link>
+          {status === "authenticated" && session?.user ? (
+            <>
+              {/* Desktop Dropdown */}
+              <div className="hidden items-center gap-3 md:flex">
+                <DropdownMenu
+                  trigger={
+                    <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
+                      <Avatar className="h-10 w-10 border border-white/20 shadow-sm">
+                        <AvatarImage
+                          src={session.user.image ?? ""}
+                          alt={session.user.name ?? "User avatar"}
+                          referrerPolicy="no-referrer"
+                          crossOrigin="anonymous"
+                        />
+                        <AvatarFallback className="bg-white/10 text-white">
+                          {session.user.name
+                            ?.split(" ")
+                            .map((part) => part.charAt(0))
+                            .join("")
+                            .slice(0, 2)
+                            .toUpperCase() || session.user.email?.charAt(0).toUpperCase() || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-semibold text-white">
+                          {session.user.name?.split(" ")[0] || session.user.email?.split("@")[0] || "User"}
+                        </span>
+                        {session.user.email && (
+                          <span className="text-[10px] text-white/60">{session.user.email}</span>
+                        )}
+                      </div>
+                    </div>
+                  }
+                  align="end"
+                >
+                  <DropdownMenuItem>
+                    <User className="h-4 w-4" />
+                    <span>Profile</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Settings className="h-4 w-4" />
+                    <span>Settings</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => signOut({ callbackUrl: "/" })}
+                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span>Log Out</span>
+                  </DropdownMenuItem>
+                </DropdownMenu>
+              </div>
+              {/* Mobile Dropdown */}
+              <div className="md:hidden">
+                <DropdownMenu
+                  trigger={
+                    <Avatar className="h-10 w-10 border border-white/20 shadow-sm cursor-pointer">
+                      <AvatarImage
+                        src={session.user.image ?? ""}
+                        alt={session.user.name ?? "User avatar"}
+                        referrerPolicy="no-referrer"
+                        crossOrigin="anonymous"
+                      />
+                      <AvatarFallback className="bg-white/10 text-white">
+                        {session.user.name
+                          ?.split(" ")
+                          .map((part) => part.charAt(0))
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase() || session.user.email?.charAt(0).toUpperCase() || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                  }
+                  align="end"
+                >
+                  <DropdownMenuItem>
+                    <User className="h-4 w-4" />
+                    <span>Profile</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Settings className="h-4 w-4" />
+                    <span>Settings</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => signOut({ callbackUrl: "/" })}
+                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span>Log Out</span>
+                  </DropdownMenuItem>
+                </DropdownMenu>
+              </div>
+            </>
+          ) : (
+            <button
+              onClick={() => signIn("google")}
+              className="hidden rounded-full border border-white/20 px-5 py-2 text-xs uppercase tracking-[0.4em] text-white/75 transition hover:border-[#FFD07F]/60 hover:text-[#FFD07F] md:inline-flex"
+            >
+              Sign in
+            </button>
+          )}
           <GlowingButton label="Cook with AI Magic" href="/preferences" className="px-6 py-2 text-xs" />
         </div>
       </nav>
