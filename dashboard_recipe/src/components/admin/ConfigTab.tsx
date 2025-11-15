@@ -35,7 +35,7 @@ export function ConfigTab() {
       
       if (response.success && response.config) {
         setConfig(response.config);
-        const value = response.config.config_value;
+        const value = response.config.config_value as { default?: number; per_user?: Record<string, number> } | null | undefined;
         setDefaultLimit(value?.default || 10);
         setUserLimits(value?.per_user || {});
       }

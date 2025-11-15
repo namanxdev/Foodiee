@@ -260,7 +260,6 @@ const handleCookRecipe = (recipe: RecipeSummary | RecipeDetail) => {
             facets={collection?.facets ?? DEFAULT_FACETS}
             searchSuggestions={suggestions}
             onFiltersChange={updateFilters}
-            onSearchCommit={(value) => updateFilters({ search: value })}
             onSuggestionSelect={(suggestion) =>
               updateFilters({ search: suggestion.title })
             }
@@ -280,7 +279,7 @@ const handleCookRecipe = (recipe: RecipeSummary | RecipeDetail) => {
               </strong>{" "}
               recipes
             </span>
-            <span>{filters.sort.replace("-", " ")}</span>
+            <span>{(filters.sort ?? "relevance").replace("-", " ")}</span>
           </div>
 
           <RecipeCollection

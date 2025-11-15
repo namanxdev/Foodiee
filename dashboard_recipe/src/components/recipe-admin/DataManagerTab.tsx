@@ -6,9 +6,10 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { listRecipes, updateRecipe, getStatistics, searchRecipes, deleteRecipe } from '@/services/recipeAdminAPI';
-import type { Recipe, RecipeStatistics, StepImage, Ingredient } from '@/types/recipeAdmin';
+import type { Recipe, RecipeStatistics, StepImage, Ingredient, RecipeUpdateRequest } from '@/types/recipeAdmin';
 import { REGIONS } from '@/constants/regions';
 
 // Image Modal Component
@@ -22,11 +23,14 @@ function ImageModal({ imageUrl, onClose }: { imageUrl: string; onClose: () => vo
         >
           ✕
         </button>
-        <img
+        <Image
           src={imageUrl}
           alt="Full size"
+          width={1200}
+          height={800}
           className="max-w-full max-h-[90vh] object-contain rounded-lg"
           onClick={(e) => e.stopPropagation()}
+          unoptimized
         />
       </div>
     </div>
@@ -67,14 +71,17 @@ function ImageGallery({ images, title, color = "blue" }: { images: (string | Ste
         <>
           {/* Main display image */}
           <div className="relative mb-3">
-            <img
+            <Image
               src={getImageUrl(images[currentIndex])}
               alt={`${title} ${currentIndex + 1}`}
+              width={800}
+              height={256}
               className="w-full h-64 object-cover rounded-lg cursor-pointer hover:opacity-90 transition"
               onClick={() => setViewingImage(getImageUrl(images[currentIndex]))}
               onError={(e) => {
                 (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%23666">Error</text></svg>';
               }}
+              unoptimized
             />
             <div className="absolute top-2 left-2 bg-black/70 text-white text-sm px-2 py-1 rounded">
               {currentIndex + 1} / {images.length}
@@ -107,13 +114,16 @@ function ImageGallery({ images, title, color = "blue" }: { images: (string | Ste
                 className={`relative cursor-pointer ${currentIndex === idx ? 'ring-2 ring-blue-500' : ''}`}
                 onClick={() => setCurrentIndex(idx)}
               >
-                <img
+                <Image
                   src={getImageUrl(img)}
                   alt={`Thumbnail ${idx + 1}`}
+                  width={100}
+                  height={64}
                   className="w-full h-16 object-cover rounded"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50"><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%23666" font-size="10">!</text></svg>';
                   }}
+                  unoptimized
                 />
                 <span className={`absolute top-1 left-1 ${colorClasses[color as keyof typeof colorClasses] || colorClasses.blue} text-white text-xs px-1 rounded`}>
                   {getStepIndex(img, idx) + 1}
@@ -225,12 +235,7 @@ export function DataManagerTab() {
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [jumpToPage, setJumpToPage] = useState('');
 
-  useEffect(() => {
-    loadRecipes();
-    loadStatistics();
-  }, [page, pageSize, filter, regionFilter, sortBy, sortOrder]);
-
-  const loadRecipes = async () => {
+  const loadRecipes = useCallback(async () => {
     try {
       setLoading(true);
       const response = await listRecipes({
@@ -248,16 +253,21 @@ export function DataManagerTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize, filter, regionFilter, sortBy, sortOrder]);
 
-  const loadStatistics = async () => {
+  const loadStatistics = useCallback(async () => {
     try {
       const response = await getStatistics();
       setStatistics(response.statistics);
     } catch (error) {
       console.error('Failed to load statistics:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadRecipes();
+    loadStatistics();
+  }, [loadRecipes, loadStatistics]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
@@ -315,7 +325,14 @@ export function DataManagerTab() {
     if (!selectedRecipe || Object.keys(editedFields).length === 0) return;
 
     try {
-      await updateRecipe(selectedRecipe.id, editedFields);
+      // Convert null values to undefined to match RecipeUpdateRequest type
+      const cleanedFields: RecipeUpdateRequest = Object.fromEntries(
+        Object.entries(editedFields).map(([key, value]) => [
+          key,
+          value === null ? undefined : value,
+        ])
+      ) as RecipeUpdateRequest;
+      await updateRecipe(selectedRecipe.id, cleanedFields);
       alert('Recipe updated successfully!');
       setIsEditing(false);
       setEditedFields({});
@@ -411,6 +428,7 @@ export function DataManagerTab() {
                     value={regionFilter}
                     onChange={(e) => { setRegionFilter(e.target.value); setPage(0); }}
                     className="w-full px-3 py-2 rounded bg-gray-700 text-sm border border-gray-600"
+                    aria-label="Filter by Region"
                   >
                     <option value="">All Regions</option>
                     {REGIONS.map(region => (
@@ -426,6 +444,7 @@ export function DataManagerTab() {
                     value={filter}
                     onChange={(e) => { setFilter(e.target.value); setPage(0); }}
                     className="w-full px-3 py-2 rounded bg-gray-700 text-sm border border-gray-600"
+                    aria-label="Filter by Status"
                   >
                     <option value="">All Status</option>
                     <option value="pending">Pending</option>
@@ -441,6 +460,7 @@ export function DataManagerTab() {
                     value={sortBy}
                     onChange={(e) => { setSortBy(e.target.value); setPage(0); }}
                     className="w-full px-3 py-2 rounded bg-gray-700 text-sm border border-gray-600"
+                    aria-label="Sort By"
                   >
                     <option value="">Default</option>
                     <option value="name">Recipe Name</option>
@@ -529,6 +549,7 @@ export function DataManagerTab() {
                     setPage(0); // Reset to first page when changing page size
                   }}
                   className="px-3 py-1 rounded bg-gray-700 text-white border border-gray-600"
+                  aria-label="Items per page"
                 >
                   <option value={10}>10</option>
                   <option value={20}>20</option>
@@ -686,6 +707,7 @@ export function DataManagerTab() {
                       value={editedFields.name ?? selectedRecipe.name}
                       onChange={(e) => setEditedFields({...editedFields, name: e.target.value})}
                       className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 focus:border-blue-500 outline-none"
+                      aria-label="Recipe name"
                     />
                   ) : (
                     <div className="text-gray-300">{selectedRecipe.name}</div>
@@ -697,9 +719,10 @@ export function DataManagerTab() {
                   <label className="block text-sm font-semibold mb-1">Region</label>
                   {isEditing ? (
                     <select
-                      value={editedFields.region ?? selectedRecipe.region}
+                      value={editedFields.region ?? selectedRecipe.region ?? ''}
                       onChange={(e) => setEditedFields({...editedFields, region: e.target.value})}
                       className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600"
+                      aria-label="Recipe region"
                     >
                       <option value="North Indian">North Indian</option>
                       <option value="South Indian">South Indian</option>
@@ -717,9 +740,10 @@ export function DataManagerTab() {
                   <label className="block text-sm font-semibold mb-1">Difficulty</label>
                   {isEditing ? (
                     <select
-                      value={editedFields.difficulty ?? selectedRecipe.difficulty}
-                      onChange={(e) => setEditedFields({...editedFields, difficulty: e.target.value})}
+                      value={editedFields.difficulty ?? selectedRecipe.difficulty ?? ''}
+                      onChange={(e) => setEditedFields({...editedFields, difficulty: e.target.value as 'Easy' | 'Medium' | 'Hard' | null})}
                       className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600"
+                      aria-label="Recipe difficulty"
                     >
                       <option value="Easy">Easy</option>
                       <option value="Medium">Medium</option>
@@ -736,9 +760,10 @@ export function DataManagerTab() {
                   {isEditing ? (
                     <input
                       type="number"
-                      value={editedFields.prep_time_minutes ?? selectedRecipe.prep_time_minutes}
+                      value={editedFields.prep_time_minutes ?? selectedRecipe.prep_time_minutes ?? ''}
                       onChange={(e) => setEditedFields({...editedFields, prep_time_minutes: parseInt(e.target.value)})}
                       className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600"
+                      aria-label="Preparation time in minutes"
                     />
                   ) : (
                     <div className="text-gray-300">{selectedRecipe.prep_time_minutes} min</div>
@@ -751,9 +776,10 @@ export function DataManagerTab() {
                   {isEditing ? (
                     <input
                       type="number"
-                      value={editedFields.cook_time_minutes ?? selectedRecipe.cook_time_minutes}
+                      value={editedFields.cook_time_minutes ?? selectedRecipe.cook_time_minutes ?? ''}
                       onChange={(e) => setEditedFields({...editedFields, cook_time_minutes: parseInt(e.target.value)})}
                       className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600"
+                      aria-label="Cook time in minutes"
                     />
                   ) : (
                     <div className="text-gray-300">{selectedRecipe.cook_time_minutes} min</div>
@@ -766,9 +792,10 @@ export function DataManagerTab() {
                   {isEditing ? (
                     <input
                       type="number"
-                      value={editedFields.servings ?? selectedRecipe.servings}
+                      value={editedFields.servings ?? selectedRecipe.servings ?? ''}
                       onChange={(e) => setEditedFields({...editedFields, servings: parseInt(e.target.value)})}
                       className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600"
+                      aria-label="Number of servings"
                     />
                   ) : (
                     <div className="text-gray-300">{selectedRecipe.servings}</div>
@@ -781,9 +808,10 @@ export function DataManagerTab() {
                   {isEditing ? (
                     <input
                       type="number"
-                      value={editedFields.calories ?? selectedRecipe.calories}
+                      value={editedFields.calories ?? selectedRecipe.calories ?? ''}
                       onChange={(e) => setEditedFields({...editedFields, calories: parseInt(e.target.value)})}
                       className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600"
+                      aria-label="Calories per serving"
                     />
                   ) : (
                     <div className="text-gray-300">{selectedRecipe.calories} kcal</div>
@@ -799,9 +827,10 @@ export function DataManagerTab() {
                       step="0.1"
                       min="0"
                       max="5"
-                      value={editedFields.rating ?? selectedRecipe.rating}
+                      value={editedFields.rating ?? selectedRecipe.rating ?? ''}
                       onChange={(e) => setEditedFields({...editedFields, rating: parseFloat(e.target.value)})}
                       className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600"
+                      aria-label="Recipe rating"
                     />
                   ) : (
                     <div className="text-gray-300">⭐ {selectedRecipe.rating?.toFixed(1) || 'N/A'}</div>
@@ -818,6 +847,7 @@ export function DataManagerTab() {
                     onChange={(e) => setEditedFields({...editedFields, description: e.target.value})}
                     rows={3}
                     className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 focus:border-blue-500 outline-none"
+                    aria-label="Recipe description"
                   />
                 ) : (
                   <div className="text-gray-300 text-sm">{selectedRecipe.description || 'N/A'}</div>
@@ -831,10 +861,11 @@ export function DataManagerTab() {
                   {isEditing && (
                     <button
                       onClick={() => {
-                        const currentIngredients = editedFields.ingredients ?? selectedRecipe.ingredients ?? [];
+                        const currentIngredients = editedFields.ingredients ?? selectedRecipe.ingredients;
+                        const ingredientsArray = Array.isArray(currentIngredients) ? currentIngredients : [];
                         setEditedFields({
                           ...editedFields,
-                          ingredients: [...currentIngredients, { name: '', ingredient: '', quantity: '', unit: '' }]
+                          ingredients: [...ingredientsArray, { name: '', quantity: '', unit: '' }]
                         });
                       }}
                       className="px-2 py-1 text-xs bg-green-600 hover:bg-green-700 rounded"
@@ -846,8 +877,11 @@ export function DataManagerTab() {
 
                 {isEditing ? (
                   <div className="space-y-2 max-h-80 overflow-y-auto">
-                    {(editedFields.ingredients ?? selectedRecipe.ingredients ?? []).map((ing: Ingredient | string, idx: number) => {
-                      const ingObj = typeof ing === 'string' ? { name: ing, quantity: '', unit: '' } : ing;
+                    {(() => {
+                      const ingredients = editedFields.ingredients ?? selectedRecipe.ingredients;
+                      const ingredientsArray = Array.isArray(ingredients) ? ingredients : typeof ingredients === 'string' ? [ingredients] : [];
+                      return ingredientsArray.map((ing: Ingredient | string, idx: number) => {
+                        const ingObj = typeof ing === 'string' ? { name: ing, quantity: '', unit: '' } : ing;
                       return (
                       <div key={idx} className="flex gap-2 items-start bg-gray-700 p-2 rounded">
                         <span className="text-gray-400 text-sm mt-2 min-w-[24px]">{idx + 1}.</span>
@@ -861,7 +895,7 @@ export function DataManagerTab() {
                               const ingredientsArray = Array.isArray(currentIngredients) ? currentIngredients : [];
                               const newIngredients = [...ingredientsArray];
                               const currentIng = typeof newIngredients[idx] === 'string' 
-                                ? { name: newIngredients[idx] as string, quantity: '', unit: '' } 
+                                ? { name: newIngredients[idx] as unknown as string, quantity: '', unit: '' } 
                                 : (newIngredients[idx] as Ingredient);
                               newIngredients[idx] = { ...currentIng, name: e.target.value };
                               setEditedFields({ ...editedFields, ingredients: newIngredients });
@@ -877,7 +911,7 @@ export function DataManagerTab() {
                               const ingredientsArray = Array.isArray(currentIngredients) ? currentIngredients : [];
                               const newIngredients = [...ingredientsArray];
                               const currentIng = typeof newIngredients[idx] === 'string' 
-                                ? { name: newIngredients[idx] as string, quantity: '', unit: '' } 
+                                ? { name: newIngredients[idx] as unknown as string, quantity: '', unit: '' } 
                                 : (newIngredients[idx] as Ingredient);
                               newIngredients[idx] = { ...currentIng, quantity: e.target.value };
                               setEditedFields({ ...editedFields, ingredients: newIngredients });
@@ -899,7 +933,8 @@ export function DataManagerTab() {
                         </button>
                       </div>
                       );
-                    })}
+                    });
+                    })()}
                   </div>
                 ) : (
                   <div className="bg-gray-700 p-3 rounded space-y-1 max-h-60 overflow-y-auto">
@@ -945,14 +980,17 @@ export function DataManagerTab() {
                       />
                       {(editedFields.image_url ?? selectedRecipe.image_url) && (
                         <div className="flex gap-2">
-                          <img
-                            src={editedFields.image_url ?? selectedRecipe.image_url}
+                          <Image
+                            src={editedFields.image_url ?? selectedRecipe.image_url ?? ''}
                             alt="Preview"
+                            width={128}
+                            height={128}
                             className="w-32 h-32 object-cover rounded cursor-pointer"
-                            onClick={() => setViewingImage(editedFields.image_url ?? selectedRecipe.image_url)}
+                            onClick={() => setViewingImage(editedFields.image_url ?? selectedRecipe.image_url ?? null)}
                             onError={(e) => {
                               (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%23666">Invalid URL</text></svg>';
                             }}
+                            unoptimized
                           />
                           <button
                             onClick={() => setEditedFields({ ...editedFields, image_url: '' })}
@@ -965,14 +1003,17 @@ export function DataManagerTab() {
                     </div>
                   ) : (
                     selectedRecipe.image_url ? (
-                      <img
+                      <Image
                         src={selectedRecipe.image_url}
                         alt={selectedRecipe.name}
+                        width={800}
+                        height={160}
                         className="w-full h-40 object-cover rounded cursor-pointer hover:opacity-90 transition"
                         onClick={() => setViewingImage(selectedRecipe.image_url!)}
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%23666">Error Loading</text></svg>';
                         }}
+                        unoptimized
                       />
                     ) : (
                       <div className="bg-gray-700 p-3 rounded text-sm text-gray-400 italic text-center">
@@ -1001,14 +1042,17 @@ export function DataManagerTab() {
                       />
                       {(editedFields.ingredients_image ?? selectedRecipe.ingredients_image) && (
                         <div className="flex gap-2">
-                          <img
-                            src={editedFields.ingredients_image ?? selectedRecipe.ingredients_image}
+                          <Image
+                            src={editedFields.ingredients_image ?? selectedRecipe.ingredients_image ?? ''}
                             alt="Ingredients Preview"
+                            width={128}
+                            height={128}
                             className="w-32 h-32 object-cover rounded cursor-pointer"
-                            onClick={() => setViewingImage(editedFields.ingredients_image ?? selectedRecipe.ingredients_image!)}
+                            onClick={() => setViewingImage(editedFields.ingredients_image ?? selectedRecipe.ingredients_image ?? null)}
                             onError={(e) => {
                               (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%23666">Invalid URL</text></svg>';
                             }}
+                            unoptimized
                           />
                           <button
                             onClick={() => setEditedFields({ ...editedFields, ingredients_image: '' })}
@@ -1021,14 +1065,17 @@ export function DataManagerTab() {
                     </div>
                   ) : (
                     selectedRecipe.ingredients_image ? (
-                      <img
+                      <Image
                         src={selectedRecipe.ingredients_image}
                         alt="Ingredients"
+                        width={800}
+                        height={160}
                         className="w-full h-40 object-cover rounded cursor-pointer hover:opacity-90 transition"
                         onClick={() => setViewingImage(selectedRecipe.ingredients_image!)}
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%23666">Error Loading</text></svg>';
                         }}
+                        unoptimized
                       />
                     ) : (
                       <div className="bg-gray-700 p-3 rounded text-sm text-gray-400 italic text-center">

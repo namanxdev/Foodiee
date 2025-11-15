@@ -76,9 +76,6 @@ export function ImageGenerationLogs({ logs }: Props) {
     });
   };
 
-  const clearLogs = () => {
-    // Optional: Add clear logs functionality later
-  };
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
@@ -168,7 +165,7 @@ export function ImageGenerationLogs({ logs }: Props) {
                     )}
                   </div>
                   <p className="text-sm break-words">{log.message}</p>
-                  {(log.error_details || log.metadata) && (
+                  {Boolean(log.error_details || log.metadata) && (
                     <details className="mt-2">
                       <summary className="text-xs cursor-pointer opacity-75 hover:opacity-100">
                         Show Details

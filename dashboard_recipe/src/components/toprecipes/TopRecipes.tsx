@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -80,12 +80,7 @@ export default function TopRecipes() {
     }
   }, [isVegetarian]);
 
-  // Fetch recipes whenever filters change
-  useEffect(() => {
-    loadRecipes();
-  }, [filters]);
-
-  const loadRecipes = async () => {
+  const loadRecipes = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -104,7 +99,12 @@ export default function TopRecipes() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
+
+  // Fetch recipes whenever filters change
+  useEffect(() => {
+    loadRecipes();
+  }, [loadRecipes]);
 
   const handleFilterChange = (newFilters: IRecipeFilters) => {
     setFilters(newFilters);

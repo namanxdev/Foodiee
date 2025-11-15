@@ -22,13 +22,14 @@ export function ExportTab() {
 
       if (format === 'csv') {
         // Download CSV file
-        downloadFile(data, `recipes_${new Date().toISOString().split('T')[0]}.csv`);
+        downloadFile(data as Blob, `recipes_${new Date().toISOString().split('T')[0]}.csv`);
         setMessage({ type: 'success', text: 'CSV file downloaded successfully!' });
       } else {
         // Download JSON file
-        const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: 'application/json' });
+        const exportData = data as { data: unknown; count: number };
+        const blob = new Blob([JSON.stringify(exportData.data, null, 2)], { type: 'application/json' });
         downloadFile(blob, `recipes_${new Date().toISOString().split('T')[0]}.json`);
-        setMessage({ type: 'success', text: `Exported ${data.count} recipes as JSON!` });
+        setMessage({ type: 'success', text: `Exported ${exportData.count} recipes as JSON!` });
       }
     } catch (error) {
       setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Export failed' });

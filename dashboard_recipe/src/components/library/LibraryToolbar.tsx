@@ -46,11 +46,10 @@ interface LibraryToolbarProps {
   facets: RecipeFacets;
   searchSuggestions: RecipeSuggestion[];
   onFiltersChange: (delta: LibraryFilterChange) => void;
-  onSearchCommit: (value: string) => void;
   onSuggestionSelect: (suggestion: RecipeSuggestion) => void;
   onOpenFilters?: () => void;
   loading?: boolean;
-  searchInputRef?: RefObject<HTMLInputElement>;
+  searchInputRef?: RefObject<HTMLInputElement | null>;
 }
 
 export function LibraryToolbar({
@@ -58,7 +57,6 @@ export function LibraryToolbar({
   facets,
   searchSuggestions,
   onFiltersChange,
-  onSearchCommit,
   onSuggestionSelect,
   onOpenFilters,
   loading,
@@ -95,10 +93,6 @@ export function LibraryToolbar({
     filters.vegetarianOnly,
   ]);
 
-  const handleSearchSubmit = (value: string) => {
-    onFiltersChange({ search: value });
-    onSearchCommit(value);
-  };
 
   const handleSuggestionClick = (suggestion: RecipeSuggestion) => {
     setSearchValue(suggestion.title);
@@ -113,13 +107,21 @@ export function LibraryToolbar({
 
   const handleMealTypeChange = (value: RecipeMealType) => {
     const current = new Set(filters.mealTypes ?? []);
-    current.has(value) ? current.delete(value) : current.add(value);
+    if (current.has(value)) {
+      current.delete(value);
+    } else {
+      current.add(value);
+    }
     onFiltersChange({ mealTypes: Array.from(current) });
   };
 
   const handleDietaryChange = (value: RecipeDietaryTag) => {
     const current = new Set(filters.dietary ?? []);
-    current.has(value) ? current.delete(value) : current.add(value);
+    if (current.has(value)) {
+      current.delete(value);
+    } else {
+      current.add(value);
+    }
     onFiltersChange({ dietary: Array.from(current) });
   };
 
@@ -260,9 +262,11 @@ export function LibraryToolbar({
             selected={filters.difficulty ?? []}
             onToggle={(difficulty) => {
               const current = new Set(filters.difficulty ?? []);
-              current.has(difficulty)
-                ? current.delete(difficulty)
-                : current.add(difficulty);
+              if (current.has(difficulty)) {
+                current.delete(difficulty);
+              } else {
+                current.add(difficulty);
+              }
               onFiltersChange({ difficulty: Array.from(current) });
             }}
           />

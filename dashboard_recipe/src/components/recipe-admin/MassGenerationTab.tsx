@@ -6,7 +6,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { startMassGeneration, pollJobStatus, getJobLogs, getStatistics } from '@/services/recipeAdminAPI';
+import { startMassGeneration, getJobLogs, getStatistics } from '@/services/recipeAdminAPI';
 import type { RegenerationJob, RegenerationLog, RecipeStatistics } from '@/types/recipeAdmin';
 import { API_CONFIG } from '@/constants';
 

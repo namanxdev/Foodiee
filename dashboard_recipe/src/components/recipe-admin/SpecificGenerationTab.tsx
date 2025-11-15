@@ -635,7 +635,7 @@ export function SpecificGenerationTab() {
               <div className="bg-gray-700 p-3 rounded space-y-1">
                 {generatedRecipe.ingredients.slice(0, 5).map((ing, idx) => (
                   <div key={idx} className="text-sm">
-                    • {ing.name || ing.ingredient} - {ing.quantity}
+                    • {ing.name} - {ing.quantity}
                   </div>
                 ))}
                 {generatedRecipe.ingredients.length > 5 && (

@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
-import { Oven } from "lucide-react";
+import { ChefHat } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { RecipeSummary, RecipeViewMode } from "@/types/library";
@@ -34,7 +34,7 @@ export function RecipeCollection({
   if (!isLoading && recipes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-orange-200 bg-orange-50/30 p-12 text-center text-slate-500 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
-        <Oven className="mb-4 h-10 w-10 text-orange-400 dark:text-orange-200" />
+        <ChefHat className="mb-4 h-10 w-10 text-orange-400 dark:text-orange-200" />
         <h3 className="text-lg font-semibold text-slate-600 dark:text-slate-200">No recipes found… yet.</h3>
         <p className="mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
           Try adjusting your filters or searching for a different ingredient or cuisine.

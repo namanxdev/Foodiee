@@ -4,10 +4,7 @@
  */
 
 import type {
-  Recipe,
   RegenerationJob,
-  RegenerationLog,
-  RecipeStatistics,
   RecipeUpdateRequest,
   MassGenerationRequest,
   SpecificGenerationRequest,

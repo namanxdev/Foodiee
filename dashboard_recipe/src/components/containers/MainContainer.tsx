@@ -18,11 +18,6 @@ export default function MainContainer() {
     setStep("chat");
   };
 
-  const handleBackToPreferences = () => {
-    setStep("preferences");
-    setSessionId("");
-    setRecommendations("");
-  };
 
   return (
     <main className="container mx-auto px-4 py-8">

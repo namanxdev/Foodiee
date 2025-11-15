@@ -36,9 +36,22 @@ app = FastAPI(
 
 # Add CORS middleware
 from fastapi.middleware.cors import CORSMiddleware
+
+# CORS Configuration
+# NOTE: When allow_credentials=True, you cannot use "*" as a wildcard origin.
+# Add your deployed frontend URL here after deployment.
+# Example: "https://your-frontend.vercel.app" or "https://your-domain.com"
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",      # Local development
+    "http://127.0.0.1:3000",      # Local development alternative
+    # Add your production frontend URL here after deployment:
+    # "https://your-frontend.vercel.app",
+    # "https://ec2-3-110-140-242.ap-south-1.compute.amazonaws.com",  # If frontend is on same EC2
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
