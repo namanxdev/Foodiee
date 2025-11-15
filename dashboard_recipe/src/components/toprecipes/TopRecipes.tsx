@@ -4,29 +4,43 @@
  * Main component for browsing and filtering top recipes
  */
 
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { FaChevronLeft, FaChevronRight, FaUtensils } from 'react-icons/fa';
-import RecipeCard from './RecipeCard';
-import RecipeFilters from './RecipeFilters';
-import RecipeDetailModal from './RecipeDetailModal';
-import VegetarianToggle from '@/components/VegetarianToggle';
-import { useVegetarian } from '@/contexts/VegetarianContext';
+import { useEffect, useState, useCallback } from "react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ChefHat,
+  Sparkles,
+} from "lucide-react";
+import RecipeCard from "./RecipeCard";
+import RecipeFilters from "./RecipeFilters";
+import RecipeDetailModal from "./RecipeDetailModal";
+import VegetarianToggle from "@/components/VegetarianToggle";
+import { useVegetarian } from "@/contexts/VegetarianContext";
 import {
   RecipeFilters as IRecipeFilters,
   TopRecipeSummary,
   fetchTopRecipes,
-} from '@/services/topRecipesApi';
+} from "@/services/topRecipesApi";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export default function TopRecipes() {
   const { isVegetarian } = useVegetarian();
   const [filters, setFilters] = useState<IRecipeFilters>({
     page: 1,
-    page_size: 12,
+    page_size: 50,
     detailed: false,
-    sort_by: 'popularity_score',
-    sort_order: 'DESC',
+    sort_by: "popularity_score",
+    sort_order: "DESC",
   });
 
   const [recipes, setRecipes] = useState<TopRecipeSummary[]>([]);
@@ -42,10 +56,10 @@ export default function TopRecipes() {
       // When vegetarian mode is ON, ensure "Vegetarian" is in dietary_tags
       setFilters((prevFilters) => {
         const currentTags = prevFilters.dietary_tags || [];
-        if (!currentTags.includes('Vegetarian')) {
+        if (!currentTags.includes("Vegetarian")) {
           return {
             ...prevFilters,
-            dietary_tags: ['Vegetarian'],
+            dietary_tags: ["Vegetarian"],
             page: 1,
           };
         }
@@ -66,27 +80,31 @@ export default function TopRecipes() {
     }
   }, [isVegetarian]);
 
-  // Fetch recipes whenever filters change
-  useEffect(() => {
-    loadRecipes();
-  }, [filters]);
-
-  const loadRecipes = async () => {
+  const loadRecipes = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const response = await fetchTopRecipes(filters);
       setRecipes(response.recipes as TopRecipeSummary[]);
       setTotalCount(response.total_count);
       setTotalPages(response.total_pages);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load recipes');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Failed to load recipes");
+      }
       setRecipes([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
+
+  // Fetch recipes whenever filters change
+  useEffect(() => {
+    loadRecipes();
+  }, [loadRecipes]);
 
   const handleFilterChange = (newFilters: IRecipeFilters) => {
     setFilters(newFilters);
@@ -103,177 +121,178 @@ export default function TopRecipes() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl shadow-xl p-8 text-white">
-        <div className="flex items-center gap-4 mb-3">
-          <FaUtensils className="text-4xl" />
-          <h2 className="text-4xl font-bold">Top Recipes</h2>
-        </div>
-        <p className="text-orange-100 text-lg">
-          Discover our curated collection of {totalCount.toLocaleString()} amazing recipes from around the world
-        </p>
-      </div>
+      <Card className="overflow-hidden border border-white/20 bg-white/5 text-white shadow-[0_24px_60px_-30px_rgba(255,90,47,0.45)] backdrop-blur">
+        <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-4">
+            <span className="flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-[#FF5A2F] via-[#FF7A45] to-[#FFD07F] text-[#1E1E1E] shadow-[0_18px_40px_-20px_rgba(255,90,47,0.75)]">
+              <ChefHat className="h-7 w-7" />
+            </span>
+            <div>
+              <CardTitle className="text-3xl font-semibold text-white">
+                Foodiee&apos;s Top 50
+              </CardTitle>
+              <CardDescription className="mt-2 max-w-2xl text-base text-white/75">
+                Discover our curated collection of{" "}
+                {totalCount ? totalCount.toLocaleString() : "thousands of"} recipes, ranked by
+                flavor, ratings, and community love.
+              </CardDescription>
+            </div>
+          </div>
+          <Badge className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs uppercase tracking-[0.4em] text-[#FFD07F]">
+            Updated Nightly
+          </Badge>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <VegetarianToggle variant="filter" />
+            {!loading && recipes.length > 0 && (
+              <p className="text-sm text-white/60">
+                Showing{" "}
+                {((filters.page || 1) - 1) * (filters.page_size || 50) + 1} -{" "}
+                {Math.min((filters.page || 1) * (filters.page_size || 50), totalCount)} of{" "}
+                {totalCount.toLocaleString()} recipes
+              </p>
+            )}
+          </div>
 
-      {/* Vegetarian Toggle */}
-      <VegetarianToggle variant="filter" />
+          <RecipeFilters filters={filters} onChange={handleFilterChange} />
+        </CardContent>
+      </Card>
 
-      {/* Filters */}
-      <RecipeFilters filters={filters} onChange={handleFilterChange} />
-
-      {/* Results Count */}
-      {!loading && recipes.length > 0 && (
-        <div className="text-gray-600 dark:text-gray-400">
-          Showing {((filters.page || 1) - 1) * (filters.page_size || 12) + 1} -{' '}
-          {Math.min((filters.page || 1) * (filters.page_size || 12), totalCount)} of{' '}
-          {totalCount.toLocaleString()} recipes
-        </div>
-      )}
-
-      {/* Loading State - Skeleton Cards */}
       {loading && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {Array.from({ length: filters.page_size || 12 }).map((_, i) => (
-              <div
-                key={i}
-                className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden animate-pulse"
-              >
-                {/* Image skeleton */}
-                <div className="h-48 bg-gray-200 dark:bg-gray-700"></div>
-                {/* Content skeleton */}
-                <div className="p-4 space-y-3">
-                  <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
-                  <div className="flex gap-2 mt-3">
-                    <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-16"></div>
-                    <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-16"></div>
-                  </div>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: Math.min(filters.page_size ?? 12, 12) }).map((_, index) => (
+            <div
+              key={index}
+              className="animate-pulse rounded-3xl border border-white/10 bg-white/5 p-5 shadow-inner shadow-black/20"
+            >
+              <div className="h-44 rounded-2xl bg-white/10" />
+              <div className="mt-5 space-y-3">
+                <div className="h-4 rounded-full bg-white/10" />
+                <div className="h-4 w-2/3 rounded-full bg-white/10" />
+                <div className="flex gap-2 pt-1">
+                  <div className="h-7 w-20 rounded-full bg-white/10" />
+                  <div className="h-7 w-16 rounded-full bg-white/10" />
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Error State */}
       {error && !loading && (
-        <div className="bg-red-100 dark:bg-red-900 border-2 border-red-500 text-red-800 dark:text-red-200 p-6 rounded-xl text-center">
-          <p className="font-bold text-lg mb-2">Oops! Something went wrong</p>
-          <p>{error}</p>
-          <button
+        <div className="rounded-3xl border border-red-400/40 bg-red-500/10 px-8 py-10 text-center text-sm text-red-100 shadow-[0_24px_60px_-30px_rgba(239,68,68,0.55)] backdrop-blur">
+          <h3 className="text-2xl font-semibold text-red-200">Oops! Something went wrong</h3>
+          <p className="mt-3">{error}</p>
+          <Button
             onClick={loadRecipes}
-            className="mt-4 bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+            variant="gradient"
+            className="mt-6 rounded-full bg-gradient-to-r from-[#FF5A2F] via-[#FF7A45] to-[#FFD07F] px-6 text-[#1E1E1E]"
           >
-            Try Again
-          </button>
+            Try again
+          </Button>
         </div>
       )}
 
-      {/* No Results */}
       {!loading && !error && recipes.length === 0 && (
-        <div className="bg-gray-100 dark:bg-slate-800 p-12 rounded-xl text-center">
-          <FaUtensils className="text-6xl text-gray-400 dark:text-gray-600 mx-auto mb-4" />
-          <p className="text-xl font-bold text-gray-700 dark:text-gray-300 mb-2">
-            No recipes found
-          </p>
-          <p className="text-gray-600 dark:text-gray-400">
-            Try adjusting your filters or search terms
+        <div className="flex flex-col items-center rounded-3xl border border-white/10 bg-white/5 px-10 py-16 text-center text-white/80 shadow-inner shadow-black/20 backdrop-blur">
+          <Sparkles className="mb-5 h-10 w-10 text-[#FFD07F]" />
+          <h3 className="text-2xl font-semibold text-white">No recipes found</h3>
+          <p className="mt-2 text-sm text-white/60">
+            Try adjusting your filters or switching off vegetarian mode for now.
           </p>
         </div>
       )}
 
-      {/* Recipe Grid */}
       {!loading && recipes.length > 0 && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {recipes.map((recipe) => (
-              <RecipeCard
-                key={recipe.id}
-                recipe={recipe}
-                onClick={handleRecipeClick}
-              />
+              <RecipeCard key={recipe.id} recipe={recipe} onClick={handleRecipeClick} />
             ))}
           </div>
 
-          {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-4 pt-8">
-              <button
-                onClick={() => handlePageChange((filters.page || 1) - 1)}
-                disabled={filters.page === 1}
-                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <FaChevronLeft />
-                Previous
-              </button>
-
+            <div className="flex flex-col items-center justify-between gap-4 pt-8 md:flex-row">
               <div className="flex items-center gap-2">
-                {/* First page */}
-                {filters.page && filters.page > 3 && (
-                  <>
-                    <button
-                      onClick={() => handlePageChange(1)}
-                      className="w-10 h-10 rounded-lg bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-slate-700"
-                    >
-                      1
-                    </button>
-                    <span className="text-gray-500">...</span>
-                  </>
-                )}
-
-                {/* Page numbers */}
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter((page) => {
-                    const currentPage = filters.page || 1;
-                    return page >= currentPage - 2 && page <= currentPage + 2;
-                  })
-                  .map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => handlePageChange(page)}
-                      className={`w-10 h-10 rounded-lg font-medium transition-colors ${
-                        page === filters.page
-                          ? 'bg-orange-500 text-white border-2 border-orange-500'
-                          : 'bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
-
-                {/* Last page */}
-                {filters.page && filters.page < totalPages - 2 && (
-                  <>
-                    <span className="text-gray-500">...</span>
-                    <button
-                      onClick={() => handlePageChange(totalPages)}
-                      className="w-10 h-10 rounded-lg bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-slate-700"
-                    >
-                      {totalPages}
-                    </button>
-                  </>
-                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-full border border-white/15 bg-white/5 text-white hover:bg-white/10"
+                  disabled={filters.page === 1}
+                  onClick={() => handlePageChange((filters.page || 1) - 1)}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Previous
+                </Button>
+                <div className="flex items-center gap-2">
+                  {filters.page && filters.page > 3 && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="rounded-full border border-white/15 bg-white/5 text-white hover:bg-white/10"
+                        onClick={() => handlePageChange(1)}
+                      >
+                        1
+                      </Button>
+                      <span className="text-white/40">…</span>
+                    </>
+                  )}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((page) => {
+                      const currentPage = filters.page || 1;
+                      return page >= currentPage - 2 && page <= currentPage + 2;
+                    })
+                    .map((page) => (
+                      <Button
+                        key={page}
+                        variant={page === filters.page ? "gradient" : "ghost"}
+                        size="sm"
+                        className={
+                          page === filters.page
+                            ? "rounded-full px-5 text-[#1E1E1E]"
+                            : "rounded-full border border-white/15 bg-white/5 text-white hover:bg-white/10"
+                        }
+                        onClick={() => handlePageChange(page)}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                  {filters.page && filters.page < totalPages - 2 && (
+                    <>
+                      <span className="text-white/40">…</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="rounded-full border border-white/15 bg-white/5 text-white hover:bg-white/10"
+                        onClick={() => handlePageChange(totalPages)}
+                      >
+                        {totalPages}
+                      </Button>
+                    </>
+                  )}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-full border border-white/15 bg-white/5 text-white hover:bg-white/10"
+                  disabled={filters.page === totalPages}
+                  onClick={() => handlePageChange((filters.page || 1) + 1)}
+                >
+                  Next
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
               </div>
-
-              <button
-                onClick={() => handlePageChange((filters.page || 1) + 1)}
-                disabled={filters.page === totalPages}
-                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Next
-                <FaChevronRight />
-              </button>
+              <span className="text-xs uppercase tracking-[0.4em] text-white/40">
+                Page {filters.page} of {totalPages}
+              </span>
             </div>
           )}
         </>
       )}
 
-      {/* Recipe Detail Modal */}
-      <RecipeDetailModal
-        recipeId={selectedRecipeId}
-        onClose={() => setSelectedRecipeId(null)}
-      />
+      <RecipeDetailModal recipeId={selectedRecipeId} onClose={() => setSelectedRecipeId(null)} />
     </div>
   );
 }

@@ -131,7 +131,7 @@ export function isValidBase64(str: string): boolean {
   if (!str) return false;
   try {
     return btoa(atob(str)) === str;
-  } catch (err) {
+  } catch {
     return false;
   }
 }
@@ -153,7 +153,7 @@ export function getImageDataUrl(base64: string, mimeType: string = 'image/jpeg')
 /**
  * Build query string from object
  */
-export function buildQueryString(params: Record<string, any>): string {
+export function buildQueryString(params: Record<string, unknown>): string {
   const searchParams = new URLSearchParams();
   
   Object.entries(params).forEach(([key, value]) => {
@@ -185,7 +185,7 @@ export function isValidEmail(email: string): boolean {
 /**
  * Check if form data is complete
  */
-export function isFormDataComplete(data: Record<string, any>, requiredFields: string[]): boolean {
+export function isFormDataComplete(data: Record<string, unknown>, requiredFields: string[]): boolean {
   return requiredFields.every(field => {
     const value = data[field];
     if (Array.isArray(value)) {

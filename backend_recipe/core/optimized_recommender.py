@@ -36,12 +36,6 @@ class OptimizedRecipeRecommender(BaseRecommender):
         return get_llm()
     
     @property
-    def vision_llm(self):
-        """Get current vision LLM instance"""
-        from config import get_vision_llm
-        return get_vision_llm()
-    
-    @property
     def embeddings_model(self):
         """Get current embeddings model"""
         from config import embeddings

@@ -47,16 +47,6 @@ export function ImageGenerationStats({ statistics }: Props) {
     });
   };
 
-  const formatDuration = (seconds: number | null) => {
-    if (seconds === null) return 'N/A';
-    if (seconds < 60) return `${seconds}s`;
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    if (minutes < 60) return `${minutes}m ${remainingSeconds}s`;
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-    return `${hours}h ${remainingMinutes}m`;
-  };
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">

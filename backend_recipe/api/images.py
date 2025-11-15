@@ -68,11 +68,65 @@ async def generate_gemini_image(
         # Validate session and get context
         session, recipe_name, current_step, current_index = validate_session_and_get_context(session_id)
         
-        # Generate image using Gemini
-        image_base64, description = recommender.generate_image_with_gemini(
-            recipe_name, 
-            current_step
-        )
+        # Get recipe ingredients for cumulative state tracking
+        recipe_ingredients = []
+        if "parsed_recipe" in session and session["parsed_recipe"]:
+            recipe_data = session["parsed_recipe"]
+            # Extract ingredients list from the recipe data
+            if "ingredients" in recipe_data:
+                ingredients_text = recipe_data["ingredients"]
+                # Parse ingredients (simple extraction)
+                import re
+                ingredients_lines = ingredients_text.strip().split('\n')
+                for line in ingredients_lines:
+                    # Extract ingredient name (before quantities/measurements)
+                    ingredient_match = re.search(r'-\s*([^-\d]+?)(?:\s*[-\d]|$)', line)
+                    if ingredient_match:
+                        ingredient_name = ingredient_match.group(1).strip()
+                        recipe_ingredients.append(ingredient_name)
+        
+        # Generate image using Gemini with cumulative state
+        try:
+            # Check if method supports cumulative state parameters
+            import inspect
+            method = getattr(recommender, 'generate_image_with_gemini')
+            sig = inspect.signature(method)
+            
+            # If method supports the new parameters, use them
+            if 'session_id' in sig.parameters:
+                image_base64, description = recommender.generate_image_with_gemini(
+                    recipe_name, 
+                    current_step,
+                    session_id=session_id,
+                    step_index=current_index,
+                    ingredients=recipe_ingredients
+                )
+                print(f"   ✅ Using cumulative state generation for step {current_index}")
+            else:
+                # Use standard method if cumulative state not supported
+                image_base64, description = recommender.generate_image_with_gemini(
+                    recipe_name, 
+                    current_step
+                )
+                print(f"   ℹ️  Using standard generation (cumulative state not available)")
+        except Exception as e:
+            # Fallback to standard generation if anything fails
+            print(f"⚠️  Image generation failed: {str(e)}")
+            print(f"   Error type: {type(e).__name__}")
+            import traceback
+            traceback.print_exc()
+            # Try one more time with basic parameters
+            try:
+                image_base64, description = recommender.generate_image_with_gemini(
+                    recipe_name, 
+                    current_step
+                )
+            except Exception as fallback_error:
+                print(f"❌ Fallback also failed: {str(fallback_error)}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Image generation failed: {str(fallback_error)}"
+                )
         
         # Update in-memory session history (for backward compatibility)
         update_session_history(session, current_index, description)
@@ -83,6 +137,8 @@ async def generate_gemini_image(
         if image_base64:
             try:
                 # Increment generation count - do this FIRST after successful generation
+                import psycopg
+                supabase_url = os.getenv("SUPABASE_OG_URL")
                 with psycopg.connect(supabase_url) as conn:
                     with conn.cursor() as cursor:
                         cursor.execute("""
@@ -93,8 +149,9 @@ async def generate_gemini_image(
             except Exception as increment_error:
                 print(f"⚠️  Failed to increment image count: {increment_error}")
                 # Continue anyway - image was generated
-            
-            # Then upload to S3 and store in session
+        
+        # Upload to S3 and store in session
+        if image_base64:
             try:
                 # Upload to S3 using user_generated/ structure
                 s3_service = get_s3_service()

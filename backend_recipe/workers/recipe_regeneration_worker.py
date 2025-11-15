@@ -172,6 +172,102 @@ class RecipeRegenerationTracker:
 # Worker Functions
 # ============================================================================
 
+def _load_images_from_s3(
+    recipe: Dict,
+    tracker: RecipeRegenerationTracker,
+    fix_main_image: bool,
+    fix_ingredients_image: bool,
+    fix_steps_images: bool
+) -> Dict:
+    """
+    Load existing S3 images and return URLs to save to database
+    
+    Returns:
+        Dict of updates to apply to the recipe
+    """
+    import requests
+    from datetime import datetime
+    
+    recipe_id = recipe['id']
+    recipe_name = recipe['name']
+    updates = {}
+    base_url = f"https://oldowan-recipe-images-2025.s3.ap-south-1.amazonaws.com/Curated/{recipe_name.lower().replace(' ', '_')}_{recipe_id}"
+    
+    # Load main image
+    if fix_main_image and not recipe.get('image_url'):
+        url = f"{base_url}/main.jpg"
+        try:
+            response = requests.head(url, timeout=2)
+            if response.status_code == 200:
+                updates['image_url'] = url
+                tracker.log(f"Loaded main image from S3: {url}", "SUCCESS", recipe_id, recipe_name)
+            else:
+                tracker.log(f"Main image not found on S3 (HTTP {response.status_code})", "WARNING", recipe_id, recipe_name)
+        except Exception as e:
+            tracker.log(f"Failed to check main image on S3: {e}", "WARNING", recipe_id, recipe_name)
+    
+    # Load ingredients image
+    if fix_ingredients_image and not recipe.get('ingredients_image'):
+        url = f"{base_url}/ingredients.jpg"
+        try:
+            response = requests.head(url, timeout=2)
+            if response.status_code == 200:
+                updates['ingredients_image'] = url
+                tracker.log(f"Loaded ingredients image from S3: {url}", "SUCCESS", recipe_id, recipe_name)
+            else:
+                tracker.log(f"Ingredients image not found on S3 (HTTP {response.status_code})", "WARNING", recipe_id, recipe_name)
+        except Exception as e:
+            tracker.log(f"Failed to check ingredients image on S3: {e}", "WARNING", recipe_id, recipe_name)
+    
+    # Load beginner step images
+    if fix_steps_images:
+        beginner_steps = recipe.get('steps_beginner', [])
+        existing_beginner = recipe.get('steps_beginner_images', []) or []
+        if len(beginner_steps) > len(existing_beginner):
+            new_beginner_images = list(existing_beginner)
+            for i in range(len(existing_beginner), len(beginner_steps)):
+                url = f"{base_url}/steps_beginner/step_{i+1}.jpg"
+                try:
+                    response = requests.head(url, timeout=2)
+                    if response.status_code == 200:
+                        new_beginner_images.append({
+                            "url": url,
+                            "step_index": i,
+                            "generated_at": datetime.now().isoformat()
+                        })
+                        tracker.log(f"Loaded beginner step {i+1} image from S3", "SUCCESS", recipe_id, recipe_name)
+                except Exception as e:
+                    tracker.log(f"Failed to load beginner step {i+1} from S3: {e}", "WARNING", recipe_id, recipe_name)
+            
+            if len(new_beginner_images) > len(existing_beginner):
+                updates['steps_beginner_images'] = new_beginner_images
+    
+    # Load advanced step images
+    if fix_steps_images:
+        advanced_steps = recipe.get('steps_advanced', [])
+        existing_advanced = recipe.get('steps_advanced_images', []) or []
+        if len(advanced_steps) > len(existing_advanced):
+            new_advanced_images = list(existing_advanced)
+            for i in range(len(existing_advanced), len(advanced_steps)):
+                url = f"{base_url}/steps_advanced/step_{i+1}.jpg"
+                try:
+                    response = requests.head(url, timeout=2)
+                    if response.status_code == 200:
+                        new_advanced_images.append({
+                            "url": url,
+                            "step_index": i,
+                            "generated_at": datetime.now().isoformat()
+                        })
+                        tracker.log(f"Loaded advanced step {i+1} image from S3", "SUCCESS", recipe_id, recipe_name)
+                except Exception as e:
+                    tracker.log(f"Failed to load advanced step {i+1} from S3: {e}", "WARNING", recipe_id, recipe_name)
+            
+            if len(new_advanced_images) > len(existing_advanced):
+                updates['steps_advanced_images'] = new_advanced_images
+    
+    return updates
+
+
 def process_single_recipe(
     recipe: Dict,
     service: RecipeRegenerationService,
@@ -180,7 +276,8 @@ def process_single_recipe(
     fix_ingredients_image: bool,
     fix_steps_images: bool,
     fix_steps_text: bool,
-    fix_ingredients_text: bool
+    fix_ingredients_text: bool,
+    mode: str = "generate"
 ) -> bool:
     """
     Process a single recipe with selective fixing
@@ -192,24 +289,37 @@ def process_single_recipe(
     recipe_name = recipe['name']
     updates = {}
     
-    tracker.log(f"Processing recipe: {recipe_name}", "INFO", recipe_id, recipe_name)
+    tracker.log(f"Processing recipe: {recipe_name} (mode: {mode})", "INFO", recipe_id, recipe_name)
     
     try:
-        # Apply fixes
-        if fix_main_image:
-            _fix_main_image(recipe, service, updates)
-        
-        if fix_ingredients_image:
-            _fix_ingredients_image(recipe, service, updates)
-        
-        if fix_ingredients_text:
-            _fix_ingredients_text(recipe, service, updates)
-        
-        if fix_steps_text:
-            _fix_steps_text(recipe, service, updates)
-        
-        if fix_steps_images:
-            _fix_steps_images(recipe, service, tracker, updates)
+        # Apply fixes based on mode
+        if mode == "load_from_s3":
+            # Load existing images from S3
+            s3_updates = _load_images_from_s3(recipe, tracker, fix_main_image, fix_ingredients_image, fix_steps_images)
+            updates.update(s3_updates)
+            
+            # Still apply text fixes if requested
+            if fix_ingredients_text:
+                _fix_ingredients_text(recipe, service, updates)
+            
+            if fix_steps_text:
+                _fix_steps_text(recipe, service, updates)
+        else:
+            # Generate mode - normal flow
+            if fix_main_image:
+                _fix_main_image(recipe, service, updates)
+            
+            if fix_ingredients_image:
+                _fix_ingredients_image(recipe, service, updates)
+            
+            if fix_ingredients_text:
+                _fix_ingredients_text(recipe, service, updates)
+            
+            if fix_steps_text:
+                _fix_steps_text(recipe, service, updates)
+            
+            if fix_steps_images:
+                _fix_steps_images(recipe, service, tracker, updates)
         
         # Update database if any changes
         if updates:
@@ -235,7 +345,8 @@ def process_single_recipe(
             recipe_name,
             error_details={"error": error_msg, "traceback": traceback.format_exc()}
         )
-        return False
+        # Re-raise to allow upstream handler to track rate limits and terminate if needed
+        raise
 
 
 # ============================================================================
@@ -423,7 +534,15 @@ def _update_recipe_in_db(recipe_id: int, recipe_name: str, updates: Dict, tracke
                      for key in updates.keys()]
         set_clause = ', '.join(set_parts)
         
-        values = list(updates.values()) + [recipe_id]
+        # JSON serialize values for JSONB columns
+        values = []
+        for key, value in updates.items():
+            if key in jsonb_columns:
+                # Serialize to JSON string for JSONB columns
+                values.append(json.dumps(value) if value is not None else None)
+            else:
+                values.append(value)
+        values.append(recipe_id)
         
         cur.execute(f"UPDATE top_recipes SET {set_clause} WHERE id = %s", values)
         conn.commit()
@@ -523,7 +642,8 @@ def start_recipe_regeneration(
     cuisine_filter: Optional[str] = None,
     recipe_name: Optional[str] = None,
     recipe_count: Optional[int] = None,
-    recipe_ids: Optional[List[int]] = None
+    recipe_ids: Optional[List[int]] = None,
+    mode: str = "generate"
 ) -> Dict:
     """
     Start recipe regeneration job
@@ -570,10 +690,11 @@ def start_recipe_regeneration(
         )
         
         tracker.log(
-            f"Starting {job_type} for {len(recipes)} recipes",
+            f"Starting {job_type} for {len(recipes)} recipes (mode: {mode})",
             "INFO",
             metadata={
                 "total_recipes": len(recipes),
+                "mode": mode,
                 "fix_main_image": fix_main_image,
                 "fix_ingredients_image": fix_ingredients_image,
                 "fix_steps_images": fix_steps_images,
@@ -589,6 +710,8 @@ def start_recipe_regeneration(
         successful = 0
         failed = 0
         skipped = 0
+        consecutive_rate_limit_failures = 0
+        MAX_CONSECUTIVE_RATE_LIMIT_FAILURES = 3
         
         for i, recipe in enumerate(recipes):
             # Check if job was cancelled
@@ -601,34 +724,106 @@ def start_recipe_regeneration(
                 )
                 break
             
+            # Check if too many consecutive rate limit failures
+            if consecutive_rate_limit_failures >= MAX_CONSECUTIVE_RATE_LIMIT_FAILURES:
+                error_message = f"Rate limit exceeded after {consecutive_rate_limit_failures} consecutive failures"
+                tracker.log(
+                    f"Terminating job: {error_message}",
+                    "ERROR"
+                )
+                tracker.complete_job('failed', error_message)
+                return {
+                    "success": False,
+                    "message": error_message,
+                    "job_id": job_id,
+                    "stats": {
+                        "total": len(recipes),
+                        "successful": successful,
+                        "skipped": skipped,
+                        "failed": failed
+                    }
+                }
+            
             tracker.log(
                 f"Processing recipe {i+1}/{len(recipes)}",
                 "INFO",
                 metadata={"progress": f"{i+1}/{len(recipes)}"}
             )
             
-            changed = process_single_recipe(
-                recipe,
-                service,
-                tracker,
-                fix_main_image,
-                fix_ingredients_image,
-                fix_steps_images,
-                fix_steps_text,
-                fix_ingredients_text
-            )
-            
-            if changed:
-                successful += 1
-            else:
-                skipped += 1
-            
-            tracker.update_progress(
-                processed=1,
-                successful=successful,
-                skipped=skipped,
-                last_processed_recipe_id=recipe['id']
-            )
+            try:
+                changed = process_single_recipe(
+                    recipe,
+                    service,
+                    tracker,
+                    fix_main_image,
+                    fix_ingredients_image,
+                    fix_steps_images,
+                    fix_steps_text,
+                    fix_ingredients_text,
+                    mode
+                )
+                
+                if changed:
+                    successful += 1
+                    # Update with increment
+                    tracker.update_progress(
+                        processed=1,
+                        successful=1,
+                        failed=0,
+                        skipped=0,
+                        last_processed_recipe_id=recipe['id']
+                    )
+                    # Reset consecutive failure counter on success
+                    consecutive_rate_limit_failures = 0
+                else:
+                    skipped += 1
+                    # Update with increment
+                    tracker.update_progress(
+                        processed=1,
+                        successful=0,
+                        failed=0,
+                        skipped=1,
+                        last_processed_recipe_id=recipe['id']
+                    )
+                
+            except Exception as e:
+                error_msg = str(e) if str(e) else f"Unknown error: {type(e).__name__}"
+                is_rate_limit_error = "429" in error_msg or "rate limit" in error_msg.lower() or "quota" in error_msg.lower()
+                
+                tracker.log(
+                    f"Failed to process recipe due to error: {error_msg}",
+                    "ERROR",
+                    recipe['id'],
+                    recipe.get('name', 'Unknown'),
+                    error_details={
+                        "error": error_msg,
+                        "error_type": type(e).__name__,
+                        "error_repr": repr(e),
+                        "is_rate_limit": is_rate_limit_error,
+                        "traceback": traceback.format_exc()
+                    }
+                )
+                
+                failed += 1
+                # Update with increment
+                tracker.update_progress(
+                    processed=1,
+                    successful=0,
+                    failed=1,
+                    skipped=0,
+                    last_processed_recipe_id=recipe['id']
+                )
+                
+                # Track consecutive rate limit failures
+                if is_rate_limit_error:
+                    consecutive_rate_limit_failures += 1
+                    tracker.log(
+                        f"Rate limit error detected ({consecutive_rate_limit_failures}/{MAX_CONSECUTIVE_RATE_LIMIT_FAILURES})",
+                        "WARNING"
+                    )
+                else:
+                    # Reset counter if it's not a rate limit error
+                    consecutive_rate_limit_failures = 0
             
             # Small delay between recipes
             time.sleep(1)

@@ -12,11 +12,12 @@ Admin endpoints for recipe management including:
 
 import threading
 import traceback
-from typing import Optional, List
+from typing import Optional, List, Dict
 from fastapi import APIRouter, HTTPException, Header, Query
 from pydantic import BaseModel
 
 from core.top_recipes_service import get_top_recipes, get_recipe_by_id, update_recipe
+from constants import REGIONS
 from workers.recipe_regeneration_worker import (
     start_recipe_regeneration,
     get_job_status,
@@ -57,14 +58,14 @@ class RecipeUpdateRequest(BaseModel):
     """Request model for updating recipe"""
     name: Optional[str] = None
     description: Optional[str] = None
-    ingredients: Optional[str] = None
-    steps: Optional[str] = None
-    image: Optional[str] = None
+    ingredients: Optional[List[Dict[str, str]]] = None  # Array of ingredient objects
+    steps: Optional[List[str]] = None  # Array of step strings
+    image_url: Optional[str] = None
     ingredients_image: Optional[str] = None
-    steps_images: Optional[List[str]] = None
+    step_image_urls: Optional[List[str]] = None
     steps_beginner: Optional[List[str]] = None
     steps_advanced: Optional[List[str]] = None
-    cuisine: Optional[str] = None
+    region: Optional[str] = None
 
 
 class MassGenerationRequest(BaseModel):
@@ -76,6 +77,7 @@ class MassGenerationRequest(BaseModel):
     fix_steps_images: bool = False
     fix_steps_text: bool = False
     fix_ingredients_text: bool = False
+    mode: Optional[str] = "generate"  # "generate" or "load_from_s3"
 
 
 class SpecificGenerationRequest(BaseModel):
@@ -118,16 +120,20 @@ def list_recipes(
     limit: int = 50,
     cuisine: Optional[str] = None,
     validation_status: Optional[str] = None,
+    sort_by: Optional[str] = None,
+    sort_order: Optional[str] = "asc",
     admin_email: str = Header(None, alias="X-Admin-Email")
 ):
     """
-    List recipes with pagination and filters
+    List recipes with pagination, filters, and sorting
     
     Query params:
     - skip: Number of recipes to skip (default: 0)
     - limit: Number of recipes to return (default: 50, max: 200)
-    - cuisine: Filter by cuisine
+    - cuisine: Filter by cuisine/region
     - validation_status: Filter by validation status ('pending', 'validated', 'needs_fixing')
+    - sort_by: Sort by field ('name', 'id', 'region', 'created_at', etc.)
+    - sort_order: Sort order ('asc' or 'desc', default: 'asc')
     """
     verify_admin(admin_email)
     
@@ -155,6 +161,20 @@ def list_recipes(
         
         if validation_status:
             filtered_recipes = [r for r in filtered_recipes if r.get('validation_status') == validation_status]
+        
+        # Apply sorting
+        if sort_by:
+            reverse = sort_order.lower() == 'desc'
+            try:
+                # Handle sorting with None values
+                filtered_recipes = sorted(
+                    filtered_recipes,
+                    key=lambda x: (x.get(sort_by) is None, x.get(sort_by, '')),
+                    reverse=reverse
+                )
+            except Exception as e:
+                # If sorting fails, log it but don't break the request
+                print(f"Warning: Could not sort by {sort_by}: {e}")
         
         # Calculate statistics
         total = len(filtered_recipes)
@@ -185,6 +205,24 @@ def list_recipes(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/regions")
+def get_available_regions(
+    admin_email: str = Header(None, alias="X-Admin-Email")
+):
+    """
+    Get list of available regions/cuisines
+    
+    Returns:
+    - List of region names
+    """
+    verify_admin(admin_email)
+    
+    return {
+        "success": True,
+        "regions": REGIONS
+    }
 
 
 @router.get("/recipes/{recipe_id}")
@@ -314,6 +352,10 @@ def update_recipe_endpoint(
     
     try:
         from dataclasses import asdict, is_dataclass
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        logger.info(f"Updating recipe {recipe_id} with data: {request.dict(exclude_unset=True)}")
         
         # Get current recipe
         recipe = get_recipe_by_id(recipe_id)
@@ -321,10 +363,15 @@ def update_recipe_endpoint(
             raise HTTPException(status_code=404, detail="Recipe not found")
         
         # Build updates dict (only include provided fields)
+        # Note: Allow None/empty values to support image removal
         updates = {}
+        
         for field, value in request.dict(exclude_unset=True).items():
-            if value is not None:
-                updates[field] = value
+            # Convert empty strings to None for image fields (to clear them)
+            if field in ['image_url', 'ingredients_image'] and value == '':
+                value = None
+            
+            updates[field] = value
         
         if not updates:
             raise HTTPException(status_code=400, detail="No fields to update")
@@ -437,6 +484,140 @@ def search_recipes(
 # Generation Endpoints
 # ============================================================================
 
+@router.post("/check-existing-images")
+def check_existing_images(
+    request: MassGenerationRequest,
+    admin_email: str = Header(None, alias="X-Admin-Email")
+):
+    """
+    Check for existing S3 images before mass generation
+    Returns recipes with existing images that aren't in database
+    """
+    verify_admin(admin_email)
+    
+    try:
+        import requests
+        from dataclasses import asdict, is_dataclass
+        from workers.recipe_regeneration_worker import _fetch_recipes_for_processing
+        
+        print(f"🔍 Checking existing images for: {request.cuisine_filter or 'all cuisines'}, count: {request.recipe_count}")
+        print(f"   Fix options: main={request.fix_main_image}, ingredients={request.fix_ingredients_image}, steps={request.fix_steps_images}")
+        
+        # Fetch recipes to process
+        recipes = _fetch_recipes_for_processing(
+            recipe_ids=None,
+            recipe_name=None,
+            cuisine_filter=request.cuisine_filter,
+            recipe_count=request.recipe_count
+        )
+        
+        print(f"📋 Found {len(recipes)} recipes to check")
+        
+        recipes_with_existing_images = []
+        
+        for recipe in recipes:
+            recipe_id = recipe['id']
+            recipe_name = recipe['name']
+            print(f"\n🔍 Checking Recipe #{recipe_id}: {recipe_name}")
+            print(f"   Current DB status: main_image={bool(recipe.get('image_url'))}, ingredients_image={bool(recipe.get('ingredients_image'))}")
+            
+            existing_images = {
+                'main_image': None,
+                'ingredients_image': None,
+                'beginner_step_images': [],
+                'advanced_step_images': []
+            }
+            has_existing = False
+            
+            # Check main image (if fix_main_image is enabled and DB doesn't have it)
+            if request.fix_main_image and not recipe.get('image_url'):
+                url = f"https://oldowan-recipe-images-2025.s3.ap-south-1.amazonaws.com/Curated/{recipe_name.lower().replace(' ', '_')}_{recipe_id}/main.jpg"
+                print(f"   🖼️  Checking main image: {url}")
+                try:
+                    response = requests.head(url, timeout=2)
+                    print(f"       Status: {response.status_code}")
+                    if response.status_code == 200:
+                        existing_images['main_image'] = url
+                        has_existing = True
+                        print(f"       ✅ Found!")
+                    else:
+                        print(f"       ❌ Not found")
+                except Exception as e:
+                    print(f"       ⚠️  Error: {e}")
+            
+            # Check ingredients image
+            if request.fix_ingredients_image and not recipe.get('ingredients_image'):
+                url = f"https://oldowan-recipe-images-2025.s3.ap-south-1.amazonaws.com/Curated/{recipe_name.lower().replace(' ', '_')}_{recipe_id}/ingredients.jpg"
+                try:
+                    response = requests.head(url, timeout=2)
+                    if response.status_code == 200:
+                        existing_images['ingredients_image'] = url
+                        has_existing = True
+                except:
+                    pass
+            
+            # Check beginner step images
+            if request.fix_steps_images:
+                beginner_steps = recipe.get('steps_beginner', [])
+                existing_beginner_images = recipe.get('steps_beginner_images', []) or []
+                if len(beginner_steps) > len(existing_beginner_images):
+                    for i in range(len(existing_beginner_images), len(beginner_steps)):
+                        url = f"https://oldowan-recipe-images-2025.s3.ap-south-1.amazonaws.com/Curated/{recipe_name.lower().replace(' ', '_')}_{recipe_id}/steps_beginner/step_{i+1}.jpg"
+                        try:
+                            response = requests.head(url, timeout=2)
+                            if response.status_code == 200:
+                                existing_images['beginner_step_images'].append({
+                                    'url': url,
+                                    'step_index': i,
+                                    'step_number': i + 1
+                                })
+                                has_existing = True
+                        except:
+                            pass
+            
+            # Check advanced step images
+            if request.fix_steps_images:
+                advanced_steps = recipe.get('steps_advanced', [])
+                existing_advanced_images = recipe.get('steps_advanced_images', []) or []
+                if len(advanced_steps) > len(existing_advanced_images):
+                    for i in range(len(existing_advanced_images), len(advanced_steps)):
+                        url = f"https://oldowan-recipe-images-2025.s3.ap-south-1.amazonaws.com/Curated/{recipe_name.lower().replace(' ', '_')}_{recipe_id}/steps_advanced/step_{i+1}.jpg"
+                        try:
+                            response = requests.head(url, timeout=2)
+                            if response.status_code == 200:
+                                existing_images['advanced_step_images'].append({
+                                    'url': url,
+                                    'step_index': i,
+                                    'step_number': i + 1
+                                })
+                                has_existing = True
+                        except:
+                            pass
+            
+            if has_existing:
+                print(f"   ✅ Recipe '{recipe_name}' has existing images")
+                recipes_with_existing_images.append({
+                    'recipe_id': recipe_id,
+                    'recipe_name': recipe_name,
+                    'existing_images': existing_images
+                })
+        
+        result = {
+            "success": True,
+            "has_existing_images": len(recipes_with_existing_images) > 0,
+            "count": len(recipes_with_existing_images),
+            "recipes": recipes_with_existing_images
+        }
+        
+        print(f"📊 Summary: Found {len(recipes_with_existing_images)} recipes with existing images out of {len(recipes)} checked")
+        
+        return result
+        
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/generate/mass")
 def mass_generate(
     request: MassGenerationRequest,
@@ -474,15 +655,17 @@ def mass_generate(
                 fix_steps_text=request.fix_steps_text,
                 fix_ingredients_text=request.fix_ingredients_text,
                 cuisine_filter=request.cuisine_filter,
-                recipe_count=request.recipe_count
+                recipe_count=request.recipe_count,
+                mode=request.mode
             )
         
         thread = threading.Thread(target=run_job, daemon=True)
         thread.start()
         
+        mode_msg = "Loading existing images from S3" if request.mode == "load_from_s3" else "Generating new images"
         return {
             "success": True,
-            "message": "Mass generation job started in background",
+            "message": f"Mass generation job started in background ({mode_msg})",
             "note": "Use /status endpoint to track progress"
         }
     except Exception as e:

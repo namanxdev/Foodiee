@@ -2,6 +2,7 @@
 FastAPI Backend for Recipe Recommendation System with RAG + Image Generation
 """
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 import config  # Import module to access variables dynamically
 
@@ -25,6 +26,7 @@ from api.preferences import set_recommender as set_preferences_recommender
 from api.recipes import set_recommender as set_recipes_recommender
 from api.images import set_recommender as set_images_recommender
 
+
 # ============================================================
 # FastAPI App Setup
 # ============================================================
@@ -36,9 +38,23 @@ app = FastAPI(
 
 # Add CORS middleware
 from fastapi.middleware.cors import CORSMiddleware
+
+# CORS Configuration
+# NOTE: When allow_credentials=True, you cannot use "*" as a wildcard origin.
+# Add your deployed frontend URL here after deployment.
+# Example: "https://your-frontend.vercel.app" or "https://your-domain.com"
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",      # Local development
+    "http://127.0.0.1:3000",
+    "https://foodiee-six-lac.vercel.app/"      # Local development alternative
+    # Add your production frontend URL here after deployment:
+    # "https://your-frontend.vercel.app",
+    # "https://ec2-3-110-140-242.ap-south-1.compute.amazonaws.com",  # If frontend is on same EC2
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -48,12 +64,12 @@ app.add_middleware(
 recommender = None
 
 # ============================================================
-# Startup Event
+# Lifespan Context Manager
 # ============================================================
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize all components on startup"""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize all components on startup and cleanup on shutdown"""
     global recommender
     
     print("🚀 Starting Recipe Recommender API...")
@@ -95,6 +111,31 @@ async def startup_event():
         import traceback
         traceback.print_exc()
         raise
+    
+    yield
+    
+    # Clean up resources on shutdown
+    print("🛑 Shutting down Recipe Recommender API...")
+
+# ============================================================
+# FastAPI App Setup
+# ============================================================
+app = FastAPI(
+    title="Recipe Recommender API",
+    description="AI-powered recipe recommendation with RAG and image generation",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Add CORS middleware
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ============================================================
 # Include API Routes
@@ -142,9 +183,15 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
+    import sys
+    import io
+    
+    # Fix Windows console encoding for emojis
+    if sys.platform == "win32":
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     
     print("="*60)
-    print("🍳 Recipe Recommender API with RAG + Image Generation")
+    print("Recipe Recommender API with RAG + Image Generation")
     print("="*60)
     
     uvicorn.run(

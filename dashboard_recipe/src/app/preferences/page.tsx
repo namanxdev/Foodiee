@@ -1,110 +1,84 @@
 "use client";
 
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import Header from "@/components/layout/Header";
+import { useEffect, Suspense } from "react";
 import AuthGate from "@/components/auth/AuthGate";
-import PreferencesForm from "@/components/PreferencesForm";
-import ChatInterface from "@/components/chat/ChatInterface";
-import { API_CONFIG } from "@/constants";
+import CinematicPreferencesForm from "@/components/preferences/CinematicPreferencesForm";
+import {
+  FancyParticleLayer,
+  FancySpotlight,
+} from "@/components/animations/FancyComponents";
 
-/**
- * Preferences Page
- * ================
- * Page for users to set their preferences and get recipe recommendations
- * Supports session_id in URL for persistence
- */
-export default function PreferencesPage() {
-  const { data: session, status } = useSession();
+function PreferencesContent() {
+  const { status } = useSession();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [step, setStep] = useState<"preferences" | "chat">("preferences");
-  const [sessionId, setSessionId] = useState("");
-  const [recommendations, setRecommendations] = useState("");
-  const [loading, setLoading] = useState(false);
+  const prefillIngredient = searchParams.get("prefill") ?? undefined;
 
-  // Check for session_id in URL - redirect to /chat if found
   useEffect(() => {
     const urlSessionId = searchParams.get("session_id");
     if (urlSessionId) {
-      // Redirect to dedicated chat route
       router.replace(`/chat?session_id=${urlSessionId}`);
     }
   }, [searchParams, router]);
 
-  const loadSessionData = async (sid: string) => {
-    setLoading(true);
-    try {
-      const headers: HeadersInit = {};
-      if (session?.user?.email) {
-        headers["X-User-Email"] = session.user.email;
-      }
-
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/session/${sid}/history`, {
-        headers,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        // Extract recommendations from chat_history if available
-        if (data.chat_history && data.chat_history.length > 0) {
-          const botMessage = data.chat_history.find((msg: any) => msg.type === "chatbot_message");
-          if (botMessage) {
-            setRecommendations(botMessage.content);
-            setStep("chat");
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Failed to load session:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePreferencesSubmit = (newSessionId: string, newRecommendations: string) => {
-    // Redirect to chat page
-    router.push(`/chat?session_id=${newSessionId}`);
-  };
-
-  const handleBackToPreferences = () => {
-    setStep("preferences");
-    // Keep session_id in URL
-    if (sessionId) {
-      router.push(`/preferences?session_id=${sessionId}`);
-    } else {
-      router.push("/preferences");
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 dark:bg-slate-900">
-      <Header session={session} />
-      
-      <AuthGate status={status}>
-        <main className="container mx-auto px-4 py-8">
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="text-center">
-                <span className="loading loading-spinner loading-lg text-orange-500"></span>
-                <p className="mt-4 text-gray-600 dark:text-gray-400">Loading session...</p>
-              </div>
-            </div>
-          ) : (
-            <>
-              {step === "preferences" && (
-                <>
-                  <PreferencesForm onSubmit={handlePreferencesSubmit} />
-                </>
-              )}
+    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(255,90,47,0.28)_0%,_rgba(30,30,30,0.92)_40%,_rgba(10,10,10,1)_100%)] text-white">
+      <FancyParticleLayer density={14} />
+      <FancySpotlight size={520} blur={140} />
 
-            </>
-          )}
-        </main>
-      </AuthGate>
+      <header className="relative z-20 mx-auto flex max-w-6xl items-center justify-between px-6 pb-10 pt-12 sm:px-10 md:px-12 lg:px-16">
+        <div>
+          <Link href="/" className="text-sm uppercase tracking-[0.45em] text-[#FFD07F]/80">
+            ← Back to cinematic landing
+          </Link>
+          <h1 className="mt-4 text-4xl font-semibold text-white sm:text-5xl">
+            Your cravings, choreographed.
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm text-white/70">
+            Dial in flavors, moods, time, and pantry — Foodiee’s AI sous chef will light up
+            chef-grade experiences tuned to your appetite.
+          </p>
+        </div>
+        <div className="hidden flex-col items-end text-xs uppercase tracking-[0.4em] text-white/60 md:flex">
+          <span className="rounded-full border border-white/15 px-4 py-2">
+            Step 1 · Preferences
+          </span>
+          <span className="mt-3 rounded-full border border-white/15 px-4 py-2">
+            Step 2 · Recommendations
+          </span>
+          <span className="mt-3 rounded-full border border-white/15 px-4 py-2">
+            Step 3 · Cooking Flow
+          </span>
+        </div>
+      </header>
+
+      <main className="relative z-20 mx-auto flex w-full max-w-7xl flex-col gap-12 px-6 pb-24 sm:px-10 md:px-12 lg:px-16">
+        <AuthGate status={status}>
+          <CinematicPreferencesForm
+            onSubmit={() => {
+              /* handled inside form */
+            }}
+            prefillIngredient={prefillIngredient}
+          />
+        </AuthGate>
+      </main>
     </div>
   );
 }
 
-
+export default function PreferencesPage() {
+  return (
+    <Suspense fallback={
+      <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(255,90,47,0.28)_0%,_rgba(30,30,30,0.92)_40%,_rgba(10,10,10,1)_100%)] text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-xl">Loading...</div>
+        </div>
+      </div>
+    }>
+      <PreferencesContent />
+    </Suspense>
+  );
+}

@@ -6,9 +6,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { startMassGeneration, pollJobStatus, getJobLogs, getStatistics } from '@/services/recipeAdminAPI';
+import { startMassGeneration, getJobLogs, getStatistics } from '@/services/recipeAdminAPI';
 import type { RegenerationJob, RegenerationLog, RecipeStatistics } from '@/types/recipeAdmin';
 import { API_CONFIG } from '@/constants';
+import { ExistingImagesModal } from './ExistingImagesModal';
 
 export function MassGenerationTab() {
   const [statistics, setStatistics] = useState<RecipeStatistics | null>(null);
@@ -24,6 +25,11 @@ export function MassGenerationTab() {
   const [fixStepsImages, setFixStepsImages] = useState(false);
   const [fixStepsText, setFixStepsText] = useState(false);
   const [fixIngredientsText, setFixIngredientsText] = useState(false);
+  
+  // Modal state
+  const [showModal, setShowModal] = useState(false);
+  const [existingImages, setExistingImages] = useState<any>(null);
+  const [isChecking, setIsChecking] = useState(false);
 
   // Load statistics on mount
   useEffect(() => {
@@ -39,8 +45,53 @@ export function MassGenerationTab() {
     }
   };
 
-  const handleStart = async () => {
+  const checkExistingImages = async () => {
+    console.log('🔍 Checking for existing S3 images...');
+    setIsChecking(true);
     try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/admin/check-existing-images`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Email': localStorage.getItem('adminEmail') || '',
+        },
+        body: JSON.stringify({
+          cuisine_filter: cuisine || undefined,
+          recipe_count: recipeCount,
+          fix_main_image: fixMainImage,
+          fix_ingredients_image: fixIngredientsImage,
+          fix_steps_images: fixStepsImages,
+          fix_steps_text: fixStepsText,
+          fix_ingredients_text: fixIngredientsText,
+        }),
+      });
+      
+      const data = await response.json();
+      console.log('✅ Check response:', data);
+      setIsChecking(false);
+      
+      if (data.has_existing_images && data.recipes && data.recipes.length > 0) {
+        // Show modal with existing images
+        console.log(`📸 Found ${data.count} recipes with existing images, showing modal...`);
+        setExistingImages(data);
+        setShowModal(true);
+      } else {
+        // No existing images, proceed with generation
+        console.log('🆕 No existing images found, proceeding with generation...');
+        startGeneration('generate');
+      }
+    } catch (error) {
+      console.error('❌ Failed to check existing images:', error);
+      setIsChecking(false);
+      // On error, proceed with generation
+      console.log('⚠️ Error occurred, proceeding with generation as fallback...');
+      startGeneration('generate');
+    }
+  };
+
+  const startGeneration = async (mode: 'generate' | 'load_from_s3') => {
+    try {
+      setShowModal(false);
       setIsRunning(true);
       setLogs([]);
       setJob(null);
@@ -53,6 +104,7 @@ export function MassGenerationTab() {
         fix_steps_images: fixStepsImages,
         fix_steps_text: fixStepsText,
         fix_ingredients_text: fixIngredientsText,
+        mode,
       });
 
       // Start polling for status
@@ -60,7 +112,7 @@ export function MassGenerationTab() {
         // Fetch job details periodically
         const interval = setInterval(async () => {
           try {
-            const jobs = await fetch(`${API_CONFIG.BASE_URL}/api/recipe-admin/jobs?limit=1`, {
+            const jobs = await fetch(`${API_CONFIG.BASE_URL}/api/admin/jobs?limit=1`, {
               headers: { 'X-Admin-Email': localStorage.getItem('adminEmail') || '' },
             }).then(r => r.json());
             
@@ -88,6 +140,11 @@ export function MassGenerationTab() {
       console.error('Failed to start generation:', error);
       setIsRunning(false);
     }
+  };
+
+  const handleStart = async () => {
+    // Check for existing images first
+    await checkExistingImages();
   };
 
   const atLeastOneOptionSelected = fixMainImage || fixIngredientsImage || fixStepsImages || fixStepsText || fixIngredientsText;
@@ -141,8 +198,8 @@ export function MassGenerationTab() {
             <input
               type="number"
               value={recipeCount}
-              onChange={(e) => setRecipeCount(parseInt(e.target.value) || 10)}
-              min="1"
+              onChange={(e) => setRecipeCount(parseInt(e.target.value))}
+              
               max="500"
               className="w-full px-4 py-2 rounded-lg bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={isRunning}
@@ -181,10 +238,10 @@ export function MassGenerationTab() {
         {/* Start Button */}
         <button
           onClick={handleStart}
-          disabled={isRunning || !atLeastOneOptionSelected}
+          disabled={isRunning || isChecking || !atLeastOneOptionSelected}
           className="px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors font-semibold"
         >
-          {isRunning ? '⏳ Running...' : '🚀 Start Generation'}
+          {isChecking ? '🔍 Checking for existing images...' : isRunning ? '⏳ Running...' : '🚀 Start Generation'}
         </button>
       </div>
 
@@ -258,8 +315,12 @@ export function MassGenerationTab() {
                   {log.metadata && typeof log.metadata === 'object' && 'prompt' in log.metadata && log.metadata.prompt && (
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(log.metadata.prompt as string);
-                        alert('Prompt copied to clipboard!');
+                        if (log.metadata && typeof log.metadata === 'object' && 'prompt' in log.metadata && log.metadata.prompt) {
+                          navigator.clipboard.writeText(log.metadata.prompt as string);
+                          alert('Prompt copied to clipboard!');
+                        } else {
+                          alert('No prompt available to copy.');
+                        }
                       }}
                       className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors whitespace-nowrap"
                       title="Copy full prompt"
@@ -272,6 +333,18 @@ export function MassGenerationTab() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Existing Images Modal */}
+      {showModal && existingImages && (
+        <ExistingImagesModal
+          recipes={existingImages.recipes}
+          onChoice={startGeneration}
+          onCancel={() => {
+            setShowModal(false);
+            setIsRunning(false);
+          }}
+        />
       )}
     </div>
   );

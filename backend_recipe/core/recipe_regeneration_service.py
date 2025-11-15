@@ -19,13 +19,13 @@ from datetime import datetime
 from core.top_recipes_service import get_recipe_by_id, get_top_recipes, update_recipe
 from core.s3_service import get_s3_service
 from core.image_generator import ImageGenerator
+from core.step_image_prompt_generator import create_prompt_generator_for_recipe
 from prompts.recipe_regeneration_prompts import (
     INGREDIENTS_IMAGE_PROMPT,
     BEGINNER_STEPS_PROMPT,
     ADVANCED_STEPS_PROMPT,
     INGREDIENT_VALIDATION_PROMPT,
-    MAIN_IMAGE_PROMPT,
-    get_step_image_prompt
+    MAIN_IMAGE_PROMPT
 )
 
 
@@ -59,7 +59,7 @@ class RecipeRegenerationService:
             self._image_gen = ImageGenerator(self.get_llm())
         return self._image_gen
     
-    def retry_with_backoff(self, func, max_retries=5, initial_delay=15, *args, **kwargs):
+    def retry_with_backoff(self, func, max_retries=3, initial_delay=15, *args, **kwargs):
         """Retry function with exponential backoff"""
         for attempt in range(1, max_retries + 1):
             try:
@@ -124,7 +124,7 @@ class RecipeRegenerationService:
             
             # Generate image
             def generate_image():
-                image_base64, _ = self.get_image_generator()._generate_with_gemini(prompt)
+                image_base64, _ = self.get_image_generator()._generate_with_imagen(prompt)
                 if not image_base64:
                     raise Exception("No image data returned from Gemini")
                 return image_base64
@@ -217,7 +217,7 @@ class RecipeRegenerationService:
             
             # Generate image
             def generate_image():
-                image_base64, _ = self.get_image_generator()._generate_with_gemini(prompt)
+                image_base64, _ = self.get_image_generator()._generate_with_imagen(prompt)
                 if not image_base64:
                     raise Exception("No image data returned from Gemini")
                 return image_base64
@@ -275,17 +275,48 @@ class RecipeRegenerationService:
     # Step Images Generation (with Resume Logic)
     # ========================================================================
     
+    def _update_step_images_in_db(self, recipe_id: int, step_type: str, step_images: List[dict]):
+        """
+        Incrementally update step images in database (Supabase)
+        This is called after each individual image generation to prevent data loss
+        
+        Args:
+            recipe_id: Recipe ID
+            step_type: 'beginner', 'advanced', or 'original'
+            step_images: Complete list of step images to save
+        """
+        try:
+            field_name = f'steps_{step_type}_images' if step_type != 'original' else 'step_image_urls'
+            update_recipe(recipe_id=recipe_id, **{field_name: step_images})
+            self.tracker.log(
+                f"Incrementally saved {len(step_images)} {step_type} step images to database",
+                "INFO",
+                recipe_id,
+                operation="incremental_save"
+            )
+        except Exception as e:
+            # Log but don't fail - we'll retry on next generation
+            self.tracker.log(
+                f"Warning: Failed to incrementally save to database: {str(e)}",
+                "WARNING",
+                recipe_id,
+                operation="incremental_save"
+            )
+    
     def generate_step_images(
         self,
         recipe_id: int,
         recipe_name: str,
         steps: List[str],
         existing_step_images: List[dict],
-        step_type: str = "original"
+        step_type: str = "original",
+        ingredients: Optional[List[str]] = None
     ) -> List[dict]:
         """
-        Generate step images with resume capability
+        Generate step images with resume capability and cumulative state
         Only generates missing images (when len(steps) > len(step_images))
+        
+        Uses unified prompt generator with cumulative state for consistent, high-quality prompts.
         
         Args:
             recipe_id: Recipe ID
@@ -293,6 +324,7 @@ class RecipeRegenerationService:
             steps: List of step descriptions
             existing_step_images: List of existing step image dicts [{url, step_index, generated_at}]
             step_type: Type of step ('original', 'beginner', 'advanced') for S3 folder organization
+            ingredients: Optional list of ingredients (extracted from recipe if not provided)
             
         Returns:
             Complete list of step image dicts (existing + newly generated)
@@ -313,8 +345,37 @@ class RecipeRegenerationService:
             )
             return existing_step_images
         
+        # Extract ingredients if not provided
+        if ingredients is None:
+            try:
+                recipe = get_recipe_by_id(recipe_id)
+                if recipe and recipe.ingredients:
+                    # Parse ingredients from recipe
+                    import json
+                    if isinstance(recipe.ingredients, str):
+                        ingredients_data = json.loads(recipe.ingredients)
+                    else:
+                        ingredients_data = recipe.ingredients
+                    
+                    # Extract ingredient names
+                    if isinstance(ingredients_data, list):
+                        ingredients = [ing.get('ingredient', ing.get('name', '')) if isinstance(ing, dict) else str(ing) 
+                                     for ing in ingredients_data if ing]
+                    else:
+                        ingredients = []
+                else:
+                    ingredients = []
+            except Exception as e:
+                self.tracker.log(
+                    f"Could not extract ingredients: {e}, continuing without",
+                    "WARNING",
+                    recipe_id,
+                    recipe_name
+                )
+                ingredients = []
+        
         self.tracker.log(
-            f"Generating {total_steps - existing_count} step images (have {existing_count}, need {total_steps})",
+            f"Generating {total_steps - existing_count} step images (have {existing_count}, need {total_steps}) using cumulative state",
             "INFO",
             recipe_id,
             recipe_name,
@@ -324,28 +385,59 @@ class RecipeRegenerationService:
         try:
             new_step_images = list(existing_step_images) if existing_step_images else []
             
+            # Create unified prompt generator with cumulative state
+            # Pass LLM from service to ensure it's initialized
+            prompt_generator = create_prompt_generator_for_recipe(
+                recipe_name, 
+                ingredients, 
+                llm=self.get_llm()
+            )
+            
             # Generate missing step images (RESUME LOGIC HERE)
             for step_idx in range(existing_count, total_steps):
+                # Check for job cancellation before each step
+                if hasattr(self.tracker, 'get_job_status'):
+                    job_status = self.tracker.get_job_status()
+                    if job_status and job_status.get('status') == 'cancelled':
+                        self.tracker.log(
+                            f"Job cancelled - stopping step image generation at step {step_idx + 1}/{total_steps}",
+                            "WARNING",
+                            recipe_id,
+                            recipe_name,
+                            operation="steps_images"
+                        )
+                        # Return what we have so far (already saved incrementally)
+                        return new_step_images
+                
                 step_num = step_idx + 1
                 current_step = steps[step_idx]
                 
-                # Create prompt using helper function
-                prompt = get_step_image_prompt(recipe_name, step_num, current_step)
+                # Generate prompt using unified generator with cumulative state
+                prompt, metadata = prompt_generator.generate_prompt(
+                    step_index=step_idx,
+                    step_description=current_step,
+                    use_cumulative_state=True
+                )
                 
                 # Generate image
                 def generate_step_image():
-                    image_base64, _ = self.get_image_generator()._generate_with_gemini(prompt)
+                    image_base64, _ = self.get_image_generator()._generate_with_imagen(prompt)
                     if not image_base64:
                         raise Exception("No image data returned from Gemini")
                     return image_base64
                 
                 self.tracker.log(
-                    f"Generating step {step_num}/{total_steps} image ({step_type})",
+                    f"Generating step {step_num}/{total_steps} image ({step_type}) with cumulative state",
                     "INFO",
                     recipe_id,
                     recipe_name,
                     operation="steps_images",
-                    metadata={"step": step_num, "step_type": step_type, "prompt": prompt}
+                    metadata={
+                        "step": step_num,
+                        "step_type": step_type,
+                        "prompt": prompt[:200] + "..." if len(prompt) > 200 else prompt,
+                        "cumulative_state": metadata
+                    }
                 )
                 
                 image_base64 = self.retry_with_backoff(generate_step_image)
@@ -370,6 +462,10 @@ class RecipeRegenerationService:
                     "generated_at": datetime.now().isoformat()
                 }
                 new_step_images.append(step_image_dict)
+                
+                # *** CRITICAL: Incrementally save to database after each image ***
+                # This prevents data loss if the process is interrupted
+                self._update_step_images_in_db(recipe_id, step_type, new_step_images)
                 
                 self.tracker.log(
                     f"Successfully generated step {step_num}/{total_steps} image ({step_type})",
@@ -396,7 +492,9 @@ class RecipeRegenerationService:
                 operation="steps_images",
                 error_details={"error": error_msg, "traceback": traceback.format_exc()}
             )
-            return existing_step_images or []
+            # CRITICAL: Re-raise the exception to properly terminate the job
+            # Don't silently continue - this was causing infinite loops
+            raise
     
     # ========================================================================
     # Steps Text Generation

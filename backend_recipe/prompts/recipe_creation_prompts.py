@@ -124,75 +124,80 @@ Your {level} steps (JSON only):"""
 # Image Generation Prompts
 # ============================================================================
 
-INGREDIENTS_IMAGE_PROMPT = """Generate a professional food photography image showing all ingredients for {recipe_name}.
+INGREDIENTS_IMAGE_PROMPT = """Professional food photography showing all ingredients for {recipe_name}.
 
-Ingredients to include: {ingredients}
+Ingredients to photograph: {ingredients}
 
-CRITICAL REQUIREMENTS (STRICTLY ENFORCE):
-1. IMAGE SIZE & ORIENTATION: MUST be HORIZONTAL format, aspect ratio 1024x680 pixels (landscape orientation)
-2. NO TEXT RULE: ABSOLUTELY NO text, labels, numbers, captions, watermarks, or any written elements on the image
-3. ALL INGREDIENTS VISIBLE: Ensure EVERY ingredient listed is visible and clearly arranged in the frame
-4. PROFESSIONAL PRESENTATION:
-   - Clean, organized flat-lay or overhead shot
-   - All ingredients in small bowls or arranged neatly
-   - Good lighting (natural or studio)
-   - Sharp focus, high detail
-   - Appealing color composition
-   - Marble, wood, or neutral background
+⚠️ CRITICAL INSTRUCTIONS - READ CAREFULLY ⚠️
 
-STYLE: Professional cookbook photography, clean and elegant, ingredients clearly visible
+WHAT TO PHOTOGRAPH:
+✅ Show EVERY ingredient listed above
+✅ Display each ingredient in the VISUAL AMOUNT specified (e.g., if it says "2 cups flour", show a bowl with approximately 2 cups worth of flour visible)
+✅ Arrange ingredients in clean bowls, small dishes, or neatly on the surface
+✅ Make sure ALL ingredients from the list are visible in the photo
 
-REMEMBER: Horizontal 1024x680 format, NO TEXT of any kind, ALL ingredients must be visible in frame."""
+TEXT PROHIBITION - ABSOLUTELY NO TEXT:
+❌ DO NOT write ingredient names as text (no "Flour", "Salt", "Sugar" text)
+❌ DO NOT write quantities or measurements as text (no "2 cups", "500g", "3 tbsp" text)
+❌ DO NOT label anything with text
+❌ NO numbers, letters, words, or characters of ANY kind
+❌ NO package labels, brand names, or product text visible
+❌ NO watermarks, typography, or written symbols
+
+IMPORTANT DISTINCTION:
+- "2 cups flour" means → Show a bowl containing the visual amount of approximately 2 cups of flour (NO text "2 cups flour" written)
+- "500g sugar" means → Show sugar in the visual amount of approximately 500g (NO text "500g sugar" written)
+- "3 cloves garlic" means → Show 3 garlic cloves visually (NO text "3 cloves garlic" written)
+
+Image requirements:
+- Professional food photography with excellent lighting
+- All ingredients clearly visible and beautifully arranged
+- Clean flat-lay or overhead shot
+- Neutral background (marble, wood, white)
+- Horizontal landscape format (4:3 aspect ratio)
+
+Create a purely visual photograph showing all the ingredients in their approximate quantities, with ZERO text anywhere in the image."""
 
 
-MAIN_IMAGE_PROMPT = """Generate a professional food photography image of the finished dish: {recipe_name}.
+MAIN_IMAGE_PROMPT = """Professional food photography of the finished dish: {recipe_name}.
 
-Description: {description}
+Recipe name (FOR REFERENCE ONLY - DO NOT WRITE IN IMAGE): {recipe_name}
+Description (FOR REFERENCE ONLY - DO NOT WRITE IN IMAGE): {description}
 
-CRITICAL REQUIREMENTS (STRICTLY ENFORCE):
-1. IMAGE SIZE & ORIENTATION: MUST be HORIZONTAL format, aspect ratio 1024x680 pixels (landscape orientation)
-2. NO TEXT RULE: ABSOLUTELY NO text, labels, numbers, captions, watermarks, or any written elements on the image
-3. PROFESSIONAL PRESENTATION:
-   - Beautiful plating on an attractive dish/bowl
-   - Perfectly cooked, appetizing appearance
-   - Professional food styling (garnishes, props)
-   - Excellent lighting (warm, soft, directional)
-   - Shallow depth of field (blurred background)
-   - Restaurant-quality presentation
-   - Context elements (utensils, napkin, ingredients) in background
+⚠️ CRITICAL - READ THIS FIRST ⚠️
+The recipe name and description above tell you WHAT dish to photograph.
+DO NOT write the recipe name, description, or any text in the image.
+Show the finished dish VISUALLY only, with NO text of any kind.
 
-STYLE: High-end restaurant food photography, magazine-quality, highly detailed, mouth-watering
+ULTRA-STRICT TEXT PROHIBITION - ABSOLUTE RULE:
+❌ ZERO text, letters, words, or numbers anywhere in the image
+❌ DO NOT write the recipe name or dish name
+❌ DO NOT write the description or any part of it
+❌ NO recipe names, labels, or captions
+❌ NO watermarks, typography, or symbols
+❌ NO plate decorations with text
+❌ NO numbers, measurements, or written elements of ANY kind
+✅ ONLY photograph the finished dish visually
+
+The recipe name and description are your GUIDE for what to photograph, NOT text to display.
+
+Image requirements:
+- Beautiful plating on attractive dish/bowl
+- Perfectly cooked, appetizing appearance
+- Professional food styling with garnishes
+- Excellent lighting (warm, soft, directional)
+- Restaurant-quality presentation
+- Shallow depth of field if appropriate
+- Horizontal landscape format
+
+ABSOLUTE PROHIBITION: Any text, letters, words, numbers, recipe names, descriptions, labels, captions, or typography are 100% FORBIDDEN.
+
+Create a purely visual photograph of the finished dish with ZERO text.
 
 REMEMBER: Horizontal 1024x680 format, NO TEXT of any kind, focus on making the dish look irresistible."""
 
-
-def get_step_image_prompt(recipe_name: str, step_description: str) -> str:
-    """Generate prompt for a specific cooking step image"""
-    return f"""Generate a professional cooking process image for: {recipe_name}
-
-Step: {step_description}
-
-CRITICAL REQUIREMENTS (STRICTLY ENFORCE):
-1. IMAGE SIZE & ORIENTATION: MUST be HORIZONTAL format, aspect ratio 1024x680 pixels (landscape orientation)
-2. NO TEXT RULE: ABSOLUTELY NO text, labels, numbers, captions, watermarks, or any written elements on the image
-3. SHOW THE ACTION:
-   - Capture the specific cooking action described in the step
-   - Show hands/utensils performing the action (when relevant)
-   - Kitchen environment visible but not distracting
-   - Clear view of the food/ingredients being prepared
-   - Mid-action shot (not before/after, but during)
-
-4. PROFESSIONAL QUALITY:
-   - Excellent lighting (warm kitchen lighting)
-   - Sharp focus on main subject
-   - Clean, organized cooking space
-   - Realistic cooking scenario
-   - Professional food photography style
-   - Appropriate angle (overhead, side, or 45-degree)
-
-STYLE: Cooking tutorial photography, clear instruction, professional kitchen, realistic and achievable
-
-REMEMBER: Horizontal 1024x680 format, NO TEXT of any kind, show the cooking process clearly."""
+# Note: Step image prompts are now handled by core.step_image_prompt_generator
+# This ensures unified, cumulative state-based prompt generation across all flows
 
 
 # ============================================================================

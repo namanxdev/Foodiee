@@ -109,12 +109,12 @@ export interface RegenerationLog {
   log_level: 'INFO' | 'WARNING' | 'ERROR' | 'SUCCESS';
   message: string;
   operation: 'main_image' | 'ingredients_image' | 'steps_images' | 'steps_text' | 'ingredients_text' | 'step_images_beginner' | 'step_images_advanced' | null;
-  details: any;
+  details: unknown;
   metadata?: {
     prompt?: string;
     step?: number;
     s3_url?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   created_at: string;
 }
@@ -146,8 +146,8 @@ export interface RecipeStatistics {
 export interface RecipeUpdateRequest {
   name?: string;
   description?: string;
-  ingredients?: string;
-  steps?: string;
+  ingredients?: Array<{ name?: string; ingredient?: string; quantity?: string; unit?: string }>;
+  steps?: string[];
   image_url?: string;
   ingredients_image?: string;
   step_image_urls?: string[];
@@ -164,6 +164,7 @@ export interface MassGenerationRequest {
   fix_steps_images: boolean;
   fix_steps_text: boolean;
   fix_ingredients_text: boolean;
+  mode?: 'generate' | 'load_from_s3';
 }
 
 export interface SpecificGenerationRequest {

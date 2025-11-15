@@ -37,8 +37,8 @@ export interface ImageGenerationLog {
   message: string;
   recipe_id: number | null;
   recipe_name: string | null;
-  error_details?: any;
-  metadata?: any;
+  error_details?: unknown;
+  metadata?: unknown;
 }
 
 export interface JobStatusResponse {
@@ -66,7 +66,7 @@ export interface JobStatistics {
   total_images_generated: number;
   total_images_failed: number;
   recipes_without_images: number;
-  recent_jobs: any[];
+  recent_jobs: ImageGenerationJob[];
 }
 
 export interface HealthCheckResponse {

@@ -134,13 +134,35 @@ export async function fetchTopRecipes(
 
   const url = `${TOP_RECIPES_ENDPOINT}?${params.toString()}`;
   
-  const response = await fetch(url);
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch recipes: ${response.statusText}`);
-  }
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      // Add cache control for development
+      cache: 'no-store',
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => response.statusText);
+      throw new Error(`Failed to fetch recipes: ${response.status} ${response.statusText} - ${errorText}`);
+    }
 
-  return response.json();
+    return response.json();
+  } catch (error) {
+    // Handle network errors (CORS, connection refused, etc.)
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      console.error('Network error:', error);
+      throw new Error(
+        `Unable to connect to API at ${TOP_RECIPES_ENDPOINT}. ` +
+        `Please ensure the backend server is running and accessible. ` +
+        `Check your NEXT_PUBLIC_API_URL environment variable.`
+      );
+    }
+    // Re-throw other errors
+    throw error;
+  }
 }
 
 /**
@@ -149,16 +171,43 @@ export async function fetchTopRecipes(
 export async function fetchRecipeById(id: number): Promise<TopRecipe> {
   const url = `${TOP_RECIPES_ENDPOINT}/${id}`;
   
-  const response = await fetch(url);
-  
-  if (!response.ok) {
-    if (response.status === 404) {
-      throw new Error('Recipe not found');
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store',
+    });
+    
+    if (!response.ok) {
+      // Try to get error message from response
+      let errorMessage = response.statusText;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.detail || errorData.message || response.statusText;
+      } catch {
+        const errorText = await response.text();
+        errorMessage = errorText || response.statusText;
+      }
+      
+      if (response.status === 404) {
+        throw new Error(`Recipe not found (ID: ${id})`);
+      }
+      throw new Error(`Failed to fetch recipe: ${response.status} ${response.statusText} - ${errorMessage}`);
     }
-    throw new Error(`Failed to fetch recipe: ${response.statusText}`);
-  }
 
-  return response.json();
+    return response.json();
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      console.error('Network error:', error);
+      throw new Error(
+        `Unable to connect to API at ${TOP_RECIPES_ENDPOINT}. ` +
+        `Please ensure the backend server is running and accessible.`
+      );
+    }
+    throw error;
+  }
 }
 
 /**
@@ -167,28 +216,64 @@ export async function fetchRecipeById(id: number): Promise<TopRecipe> {
 export async function fetchAvailableFilters(): Promise<AvailableFilters> {
   const url = `${TOP_RECIPES_ENDPOINT}/filters/available`;
   
-  const response = await fetch(url);
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch filters: ${response.statusText}`);
-  }
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store',
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => response.statusText);
+      throw new Error(`Failed to fetch filters: ${response.status} ${response.statusText} - ${errorText}`);
+    }
 
-  return response.json();
+    return response.json();
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      console.error('Network error:', error);
+      throw new Error(
+        `Unable to connect to API at ${TOP_RECIPES_ENDPOINT}. ` +
+        `Please ensure the backend server is running and accessible.`
+      );
+    }
+    throw error;
+  }
 }
 
 /**
  * Fetch database statistics
  */
-export async function fetchRecipeStats(): Promise<any> {
+export async function fetchRecipeStats(): Promise<unknown> {
   const url = `${TOP_RECIPES_ENDPOINT}/stats/summary`;
   
-  const response = await fetch(url);
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch stats: ${response.statusText}`);
-  }
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store',
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => response.statusText);
+      throw new Error(`Failed to fetch stats: ${response.status} ${response.statusText} - ${errorText}`);
+    }
 
-  return response.json();
+    return response.json();
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      console.error('Network error:', error);
+      throw new Error(
+        `Unable to connect to API at ${TOP_RECIPES_ENDPOINT}. ` +
+        `Please ensure the backend server is running and accessible.`
+      );
+    }
+    throw error;
+  }
 }
 
 // ============================================================================

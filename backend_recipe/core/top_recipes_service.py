@@ -81,41 +81,98 @@ def get_supabase_connection():
 
 def row_to_recipe(row: dict) -> TopRecipe:
     """Convert database row dict to TopRecipe object"""
-    return TopRecipe(
-        id=row['id'],
-        name=row['name'],
-        description=row['description'],
-        region=row['region'],
-        tastes=row['tastes'] if row['tastes'] else [],
-        meal_types=row['meal_types'] if row['meal_types'] else [],
-        dietary_tags=row['dietary_tags'] if row['dietary_tags'] else [],
-        difficulty=row['difficulty'],
-        prep_time_minutes=row['prep_time_minutes'],
-        cook_time_minutes=row['cook_time_minutes'],
-        total_time_minutes=row['total_time_minutes'],
-        servings=row['servings'],
-        calories=row['calories'],
-        ingredients=row['ingredients'] if row['ingredients'] else [],
-        steps=row['steps'] if row['steps'] else [],
-        image_url=row['image_url'],
-        step_image_urls=row['step_image_urls'] if row['step_image_urls'] else [],
-        popularity_score=float(row['popularity_score']) if row['popularity_score'] else 0.0,
-        rating=float(row['rating']) if row['rating'] else 0.0,
-        source=row['source'],
-        created_at=str(row['created_at']) if row.get('created_at') else None,
-        updated_at=str(row['updated_at']) if row.get('updated_at') else None,
-        # New fields
-        ingredients_image=row.get('ingredients_image'),
-        steps_beginner=row.get('steps_beginner') if row.get('steps_beginner') else None,
-        steps_advanced=row.get('steps_advanced') if row.get('steps_advanced') else None,
-        steps_beginner_images=row.get('steps_beginner_images') if row.get('steps_beginner_images') else None,
-        steps_advanced_images=row.get('steps_advanced_images') if row.get('steps_advanced_images') else None,
-        ingredient_image_urls=row.get('ingredient_image_urls') if row.get('ingredient_image_urls') else None,
-        validation_status=row.get('validation_status'),
-        data_quality_score=row.get('data_quality_score'),
-        is_complete=row.get('is_complete'),
-        last_validated_at=str(row['last_validated_at']) if row.get('last_validated_at') else None
-    )
+    try:
+        # Helper function to safely get values
+        def safe_get(key, default=None):
+            value = row.get(key, default)
+            # Handle JSON string conversion if needed
+            if isinstance(value, str) and (value.startswith('[') or value.startswith('{')):
+                try:
+                    return json.loads(value)
+                except:
+                    pass
+            return value
+        
+        # Parse JSON fields if they're strings
+        tastes = safe_get('tastes', [])
+        if isinstance(tastes, str):
+            try:
+                tastes = json.loads(tastes)
+            except:
+                tastes = []
+        
+        meal_types = safe_get('meal_types', [])
+        if isinstance(meal_types, str):
+            try:
+                meal_types = json.loads(meal_types)
+            except:
+                meal_types = []
+        
+        dietary_tags = safe_get('dietary_tags', [])
+        if isinstance(dietary_tags, str):
+            try:
+                dietary_tags = json.loads(dietary_tags)
+            except:
+                dietary_tags = []
+        
+        ingredients = safe_get('ingredients', [])
+        if isinstance(ingredients, str):
+            try:
+                ingredients = json.loads(ingredients)
+            except:
+                ingredients = []
+        
+        steps = safe_get('steps', [])
+        if isinstance(steps, str):
+            try:
+                steps = json.loads(steps)
+            except:
+                steps = []
+        
+        step_image_urls = safe_get('step_image_urls', [])
+        if isinstance(step_image_urls, str):
+            try:
+                step_image_urls = json.loads(step_image_urls)
+            except:
+                step_image_urls = []
+        
+        return TopRecipe(
+            id=row['id'],
+            name=row.get('name', 'Unknown Recipe'),
+            description=row.get('description'),
+            region=row.get('region'),
+            tastes=tastes if tastes else [],
+            meal_types=meal_types if meal_types else [],
+            dietary_tags=dietary_tags if dietary_tags else [],
+            difficulty=row.get('difficulty'),
+            prep_time_minutes=row.get('prep_time_minutes'),
+            cook_time_minutes=row.get('cook_time_minutes'),
+            total_time_minutes=row.get('total_time_minutes'),
+            servings=row.get('servings'),
+            calories=row.get('calories'),
+            ingredients=ingredients if ingredients else [],
+            steps=steps if steps else [],
+            image_url=row.get('image_url'),
+            step_image_urls=step_image_urls if step_image_urls else [],
+            popularity_score=float(row.get('popularity_score', 0) or 0),
+            rating=float(row.get('rating', 0) or 0),
+            source=row.get('source', 'api'),
+            created_at=str(row['created_at']) if row.get('created_at') else None,
+            updated_at=str(row['updated_at']) if row.get('updated_at') else None,
+            # New fields
+            ingredients_image=row.get('ingredients_image'),
+            steps_beginner=row.get('steps_beginner') if row.get('steps_beginner') else None,
+            steps_advanced=row.get('steps_advanced') if row.get('steps_advanced') else None,
+            steps_beginner_images=row.get('steps_beginner_images') if row.get('steps_beginner_images') else None,
+            steps_advanced_images=row.get('steps_advanced_images') if row.get('steps_advanced_images') else None,
+            ingredient_image_urls=row.get('ingredient_image_urls') if row.get('ingredient_image_urls') else None,
+            validation_status=row.get('validation_status'),
+            data_quality_score=row.get('data_quality_score'),
+            is_complete=row.get('is_complete'),
+            last_validated_at=str(row['last_validated_at']) if row.get('last_validated_at') else None
+        )
+    except Exception as e:
+        raise
 
 
 def row_to_recipe_summary(row: dict) -> TopRecipeSummary:
@@ -237,17 +294,24 @@ def get_top_recipes(
 
 def get_recipe_by_id(recipe_id: int) -> Optional[TopRecipe]:
     """Get a single recipe by ID"""
-    conn = get_supabase_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT * FROM top_recipes WHERE id = %s", (recipe_id,))
-    row = cursor.fetchone()
-    conn.close()
-    
-    if not row:
-        return None
-    
-    return row_to_recipe(row)
+    try:
+        conn = get_supabase_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT * FROM top_recipes WHERE id = %s", (recipe_id,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        if not row:
+            return None
+        
+        try:
+            recipe = row_to_recipe(row)
+            return recipe
+        except Exception as convert_err:
+            raise
+    except Exception as e:
+        raise
 
 
 def insert_recipe(
@@ -318,132 +382,31 @@ def insert_recipe(
     return recipe_id
 
 
-def update_recipe(
-    recipe_id: int,
-    name: Optional[str] = None,
-    description: Optional[str] = None,
-    region: Optional[str] = None,
-    tastes: Optional[List[Dict[str, int]]] = None,
-    meal_types: Optional[List[str]] = None,
-    dietary_tags: Optional[List[str]] = None,
-    difficulty: Optional[str] = None,
-    prep_time_minutes: Optional[int] = None,
-    cook_time_minutes: Optional[int] = None,
-    total_time_minutes: Optional[int] = None,
-    servings: Optional[int] = None,
-    calories: Optional[int] = None,
-    ingredients: Optional[List[Dict[str, str]]] = None,
-    steps: Optional[List[str]] = None,
-    image_url: Optional[str] = None,
-    step_image_urls: Optional[List[str]] = None,
-    rating: Optional[float] = None,
-    popularity_score: Optional[float] = None,
-    ingredients_image: Optional[str] = None,
-    steps_beginner: Optional[List[str]] = None,
-    steps_advanced: Optional[List[str]] = None,
-    validation_status: Optional[str] = None,
-    data_quality_score: Optional[int] = None,
-    is_complete: Optional[bool] = None
-) -> bool:
-    """Update specific fields of an existing recipe"""
+def update_recipe(recipe_id: int, **kwargs) -> bool:
+    """
+    Update specific fields of an existing recipe.
+    Accepts any combination of fields as keyword arguments.
+    Pass None to clear/remove a field value.
+    """
     updates = []
     params = []
     
-    if name is not None:
-        updates.append("name = %s")
-        params.append(name)
+    # Fields that should be JSON serialized
+    json_fields = {
+        'tastes', 'ingredients', 'steps_beginner', 'steps_advanced',
+        'step_image_urls', 'steps_beginner_images', 'steps_advanced_images',
+        'ingredient_image_urls'
+    }
     
-    if description is not None:
-        updates.append("description = %s")
-        params.append(description)
-    
-    if region is not None:
-        updates.append("region = %s")
-        params.append(region)
-    
-    if tastes is not None:
-        updates.append("tastes = %s")
-        params.append(json.dumps(tastes))
-    
-    if meal_types is not None:
-        updates.append("meal_types = %s")
-        params.append(meal_types)
-    
-    if dietary_tags is not None:
-        updates.append("dietary_tags = %s")
-        params.append(dietary_tags)
-    
-    if difficulty is not None:
-        updates.append("difficulty = %s")
-        params.append(difficulty)
-    
-    if prep_time_minutes is not None:
-        updates.append("prep_time_minutes = %s")
-        params.append(prep_time_minutes)
-    
-    if cook_time_minutes is not None:
-        updates.append("cook_time_minutes = %s")
-        params.append(cook_time_minutes)
-    
-    if total_time_minutes is not None:
-        updates.append("total_time_minutes = %s")
-        params.append(total_time_minutes)
-    
-    if servings is not None:
-        updates.append("servings = %s")
-        params.append(servings)
-    
-    if calories is not None:
-        updates.append("calories = %s")
-        params.append(calories)
-    
-    if ingredients is not None:
-        updates.append("ingredients = %s")
-        params.append(json.dumps(ingredients))
-    
-    if steps is not None:
-        updates.append("steps = %s")
-        params.append(steps)
-    
-    if image_url is not None:
-        updates.append("image_url = %s")
-        params.append(image_url)
-    
-    if step_image_urls is not None:
-        updates.append("step_image_urls = %s")
-        params.append(step_image_urls)
-    
-    if rating is not None:
-        updates.append("rating = %s")
-        params.append(rating)
-    
-    if popularity_score is not None:
-        updates.append("popularity_score = %s")
-        params.append(popularity_score)
-    
-    if ingredients_image is not None:
-        updates.append("ingredients_image = %s")
-        params.append(ingredients_image)
-    
-    if steps_beginner is not None:
-        updates.append("steps_beginner = %s")
-        params.append(json.dumps(steps_beginner))
-    
-    if steps_advanced is not None:
-        updates.append("steps_advanced = %s")
-        params.append(json.dumps(steps_advanced))
-    
-    if validation_status is not None:
-        updates.append("validation_status = %s")
-        params.append(validation_status)
-    
-    if data_quality_score is not None:
-        updates.append("data_quality_score = %s")
-        params.append(data_quality_score)
-    
-    if is_complete is not None:
-        updates.append("is_complete = %s")
-        params.append(is_complete)
+    # Process each provided field
+    for field, value in kwargs.items():
+        # Serialize JSON fields
+        if field in json_fields and value is not None:
+            value = json.dumps(value)
+        
+        # Add to update query
+        updates.append(f"{field} = %s")
+        params.append(value)
     
     if not updates:
         return False

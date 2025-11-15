@@ -20,13 +20,13 @@ from workers.monitoring import get_active_job, count_recipes_without_images
 # Retry Logic with Exponential Backoff
 # ============================================================================
 
-def retry_with_backoff(func, max_retries=5, initial_delay=15, *args, **kwargs):
+def retry_with_backoff(func, max_retries=3, initial_delay=15, *args, **kwargs):
     """
     Retry a function with exponential backoff
     
     Args:
         func: Function to retry
-        max_retries: Maximum number of retry attempts
+        max_retries: Maximum number of retry attempts (reduced to 3)
         initial_delay: Initial delay in seconds (15s as per requirements)
         *args, **kwargs: Arguments to pass to function
         
@@ -100,13 +100,13 @@ Composition: Clean background, properly plated, restaurant-quality presentation.
         
         # Generate image with Gemini (with retry logic)
         def generate_image():
-            image_base64, _ = image_gen._generate_with_gemini(prompt)
+            image_base64, _ = image_gen._generate_with_imagen(prompt)
             if not image_base64:
                 raise Exception("No image data returned from Gemini")
             return image_base64
         
         tracker.log(f"Generating main image for: {recipe_name}", "INFO", recipe_id, recipe_name)
-        image_base64 = retry_with_backoff(generate_image, max_retries=5, initial_delay=15)
+        image_base64 = retry_with_backoff(generate_image, max_retries=3, initial_delay=15)
         
         # Upload to S3 (with retry logic)
         def upload_to_s3():
@@ -149,11 +149,14 @@ def generate_step_images_with_retry(
     steps: List[str],
     existing_step_images: List[dict],
     tracker: ProgressTracker,
-    step_type: str = "original"
+    step_type: str = "original",
+    ingredients: Optional[List[str]] = None
 ) -> List[dict]:
     """
-    Generate step images with cumulative context
+    Generate step images with cumulative state (unified prompt generator)
     Only generates missing images (when steps.length > step_images.length)
+    
+    Uses the same unified prompt generator as preferences flow for consistency.
     
     Args:
         recipe_id: Recipe ID
@@ -162,13 +165,17 @@ def generate_step_images_with_retry(
         existing_step_images: List of existing step image dicts [{url, step_index, generated_at}]
         tracker: Progress tracker for logging
         step_type: Type of step ('original', 'beginner', 'advanced')
+        ingredients: Optional list of ingredients (extracted from recipe if not provided)
         
     Returns:
         Complete list of step image dicts (existing + newly generated)
         Format: [{url: str, step_index: int, generated_at: str}]
     """
     from core.image_generator import ImageGenerator
+    from core.step_image_prompt_generator import create_prompt_generator_for_recipe
+    from core.top_recipes_service import get_recipe_by_id
     from config import llm
+    import json
     
     # Check if we need to generate more images
     existing_count = len(existing_step_images)
@@ -183,53 +190,84 @@ def generate_step_images_with_retry(
         )
         return existing_step_images
     
+    # Extract ingredients if not provided
+    if ingredients is None:
+        try:
+            recipe = get_recipe_by_id(recipe_id)
+            if recipe and recipe.ingredients:
+                # Parse ingredients from recipe
+                if isinstance(recipe.ingredients, str):
+                    ingredients_data = json.loads(recipe.ingredients)
+                else:
+                    ingredients_data = recipe.ingredients
+                
+                # Extract ingredient names
+                if isinstance(ingredients_data, list):
+                    ingredients = [ing.get('ingredient', ing.get('name', '')) if isinstance(ing, dict) else str(ing) 
+                                 for ing in ingredients_data if ing]
+                else:
+                    ingredients = []
+            else:
+                ingredients = []
+        except Exception as e:
+            tracker.log(
+                f"Could not extract ingredients: {e}, continuing without",
+                "WARNING",
+                recipe_id,
+                recipe_name
+            )
+            ingredients = []
+    
     tracker.log(
-        f"Generating {total_steps - existing_count} step images (have {existing_count}, need {total_steps})",
+        f"Generating {total_steps - existing_count} step images (have {existing_count}, need {total_steps}) using unified cumulative state",
         "INFO",
         recipe_id,
         recipe_name
     )
     
     try:
-        # Initialize image generator (sd_image_prompt is optional for Gemini)
+        # Initialize image generator
         image_gen = ImageGenerator(llm)
         s3_service = get_s3_service()
         new_step_images = list(existing_step_images)  # Copy existing step images
         
+        # Create unified prompt generator with cumulative state
+        # Ensure LLM is initialized before creating generator
+        if llm is None:
+            raise RuntimeError("LLM not initialized in batch image generator")
+        prompt_generator = create_prompt_generator_for_recipe(recipe_name, ingredients, llm=llm)
+        
         # Generate missing step images
         for step_idx in range(existing_count, total_steps):
+            # Check for job status/cancellation before each step
+            try:
+                from workers.monitoring import get_active_job
+                active_job = get_active_job()
+                if active_job and active_job.get('status') == 'cancelled':
+                    tracker.log(
+                        f"Job cancelled - stopping step image generation at step {step_idx + 1}/{total_steps}",
+                        "WARNING",
+                        recipe_id,
+                        recipe_name
+                    )
+                    # Return what we have so far (already saved incrementally)
+                    return new_step_images
+            except:
+                pass  # If monitoring check fails, continue
+            
             step_num = step_idx + 1  # 1-based indexing
             current_step = steps[step_idx]
             
-            # Create cumulative context (all steps up to current)
-            cumulative_context = "\n".join([
-                f"Step {i+1}: {steps[i]}" for i in range(step_num)
-            ])
-            
-            # Create prompt with cumulative context
-            prompt = f"""Generate a clear instructional cooking photo for {recipe_name}.
-
-Current step (Step {step_num} of {total_steps}):
-{current_step}
-
-Context (what has been done so far):
-{cumulative_context}
-
-CRITICAL REQUIREMENTS (STRICTLY ENFORCE):
-1. IMAGE SIZE & ORIENTATION: MUST be HORIZONTAL format, aspect ratio 1024x680 pixels (landscape orientation)
-2. NO TEXT RULE: ABSOLUTELY NO text, step numbers, labels, captions, watermarks, or any written elements
-
-Style: Clear, instructional cooking photo showing the specific action or state at this step.
-Focus: Show exactly what is described in Step {step_num}, NOT the final dish.
-Composition: Clean workspace, visible ingredients/tools, mid-cooking process, HORIZONTAL framing.
-
-STRICTLY FORBIDDEN: Any text, numbers, labels, overlays, watermarks, or written elements of any kind.
-
-Output: Horizontal landscape image (1024x680), completely text-free."""
+            # Generate prompt using unified generator with cumulative state
+            prompt, metadata = prompt_generator.generate_prompt(
+                step_index=step_idx,
+                step_description=current_step,
+                use_cumulative_state=True
+            )
             
             # Generate image
             def generate_step_image():
-                image_base64, _ = image_gen._generate_with_gemini(prompt)
+                image_base64, _ = image_gen._generate_with_imagen(prompt)
                 if not image_base64:
                     raise Exception("No image data returned from Gemini")
                 return image_base64
@@ -241,7 +279,7 @@ Output: Horizontal landscape image (1024x680), completely text-free."""
                 recipe_name
             )
             
-            image_base64 = retry_with_backoff(generate_step_image, max_retries=5, initial_delay=15)
+            image_base64 = retry_with_backoff(generate_step_image, max_retries=3, initial_delay=15)
             
             # Upload to S3 with step_type
             def upload_step_to_s3():
@@ -264,6 +302,25 @@ Output: Horizontal landscape image (1024x680), completely text-free."""
                 "generated_at": datetime.now().isoformat()
             }
             new_step_images.append(step_image_dict)
+            
+            # *** CRITICAL: Incrementally save to database after each image ***
+            # This prevents data loss if the process is interrupted
+            field_name = f'steps_{step_type}_images' if step_type != 'original' else 'step_image_urls'
+            try:
+                update_recipe(recipe_id=recipe_id, **{field_name: new_step_images})
+                tracker.log(
+                    f"Incrementally saved {len(new_step_images)} {step_type} step images to database",
+                    "INFO",
+                    recipe_id,
+                    recipe_name
+                )
+            except Exception as db_error:
+                tracker.log(
+                    f"Warning: Failed to incrementally save to database: {str(db_error)}",
+                    "WARNING",
+                    recipe_id,
+                    recipe_name
+                )
             
             tracker.log(
                 f"Successfully generated step {step_num}/{total_steps} image ({step_type})",
@@ -288,7 +345,9 @@ Output: Horizontal landscape image (1024x680), completely text-free."""
             recipe_name,
             error_details={"error": error_msg, "traceback": traceback.format_exc()}
         )
-        return existing_step_images  # Return what we have
+        # CRITICAL: Re-raise the exception to properly terminate the job
+        # Don't silently continue - this was causing infinite loops
+        raise
 
 
 # ============================================================================
@@ -390,6 +449,8 @@ def start_batch_image_generation(
         completed = 0
         failed = 0
         skipped = 0
+        consecutive_rate_limit_failures = 0
+        MAX_CONSECUTIVE_RATE_LIMIT_FAILURES = 3
         
         for recipe in recipes_to_process:
             # Check if should stop
@@ -397,6 +458,23 @@ def start_batch_image_generation(
                 tracker.log("Stop requested - finishing current recipe and stopping", "WARNING")
                 tracker.update_job_status("stopped", recipe.id, recipe.name)
                 break
+            
+            # Check if too many consecutive rate limit failures
+            if consecutive_rate_limit_failures >= MAX_CONSECUTIVE_RATE_LIMIT_FAILURES:
+                tracker.log(
+                    f"Terminating job: Hit rate limits {consecutive_rate_limit_failures} times consecutively",
+                    "ERROR"
+                )
+                tracker.update_job_status("failed", error_message=f"Rate limit exceeded after {consecutive_rate_limit_failures} consecutive failures")
+                tracker.close()
+                return {
+                    "success": False,
+                    "message": f"Job terminated due to repeated rate limit errors",
+                    "job_id": job_id,
+                    "completed": completed,
+                    "failed": failed,
+                    "skipped": skipped
+                }
             
             # Update current recipe
             tracker.update_job_status("running", recipe.id, recipe.name)
@@ -466,6 +544,9 @@ def start_batch_image_generation(
                         update_recipe(recipe_id=recipe.id, step_image_urls=step_images)
                         completed += 1
                 
+                # Reset consecutive failure counter on success
+                consecutive_rate_limit_failures = 0
+                
                 # Update progress
                 tracker.update_progress(
                     completed_count=completed,
@@ -479,15 +560,30 @@ def start_batch_image_generation(
                 
             except Exception as e:
                 error_msg = str(e)
+                is_rate_limit_error = "429" in error_msg or "rate limit" in error_msg.lower() or "quota" in error_msg.lower()
+                
                 tracker.log(
                     f"Unexpected error processing recipe: {error_msg}",
                     "ERROR",
                     recipe.id,
                     recipe.name,
-                    error_details={"error": error_msg, "traceback": traceback.format_exc()}
+                    error_details={"error": error_msg, "traceback": traceback.format_exc(), "is_rate_limit": is_rate_limit_error}
                 )
                 failed += 1
                 tracker.update_progress(failed_count=failed)
+                
+                # Track consecutive rate limit failures
+                if is_rate_limit_error:
+                    consecutive_rate_limit_failures += 1
+                    tracker.log(
+                        f"Rate limit error detected ({consecutive_rate_limit_failures}/{MAX_CONSECUTIVE_RATE_LIMIT_FAILURES})",
+                        "WARNING",
+                        recipe.id,
+                        recipe.name
+                    )
+                else:
+                    # Reset counter if it's not a rate limit error
+                    consecutive_rate_limit_failures = 0
         
         # Complete job
         tracker.update_job_status("completed")

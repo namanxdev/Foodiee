@@ -27,7 +27,6 @@ load_dotenv()
 
 # AI Models
 llm: Optional[ChatGoogleGenerativeAI] = None
-vision_llm: Optional[ChatGoogleGenerativeAI] = None
 embeddings: Optional[GoogleGenerativeAIEmbeddings] = None
 recipe_vector_store: Optional[PGVector] = None
 connection_string: Optional[str] = None
@@ -44,21 +43,19 @@ user_sessions: Dict[str, dict] = {}
 
 def initialize_ai_models():
     """Initialize all AI models and embeddings"""
-    global llm, vision_llm, embeddings
+    global llm, embeddings
     
     GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
     if not GOOGLE_API_KEY:
         raise ValueError("GOOGLE_API_KEY not found in environment variables")
     
     # Initialize Gemini models
+    # max_retries=0 disables LangChain's internal retry to avoid infinite loops
+    # We handle retries manually in our retry_with_backoff function (3 attempts)
     llm = ChatGoogleGenerativeAI(
         model=os.environ.get("GEMINI_TEXT_MODEL", "gemini-2.0-flash-lite"),
-        google_api_key=GOOGLE_API_KEY
-    )
-    
-    vision_llm = ChatGoogleGenerativeAI(
-        model=os.environ.get("GEMINI_VISION_MODEL", "gemini-2.0-flash-lite"),
-        google_api_key=GOOGLE_API_KEY
+        google_api_key=GOOGLE_API_KEY,
+        max_retries=0
     )
     
     embeddings = GoogleGenerativeAIEmbeddings(
@@ -176,7 +173,7 @@ def load_recipe_vector_store(pdf_directory="../Pdfs"):
                         AND collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = '{collection_name}')
                     """))
                     conn.commit()
-                    print(f"      ✅ Removed embeddings for: {pdf}")
+                    # print(f"      ✅ Removed embeddings for: {pdf}")
         except Exception as e:
             print(f"      ⚠️  Error removing old PDFs: {e}")
     
@@ -291,10 +288,6 @@ def initialize_all():
 def get_llm():
     """Get the current LLM instance"""
     return llm
-
-def get_vision_llm():
-    """Get the current vision LLM instance"""
-    return vision_llm
 
 def get_recipe_vector_store():
     """Get the current recipe vector store instance"""

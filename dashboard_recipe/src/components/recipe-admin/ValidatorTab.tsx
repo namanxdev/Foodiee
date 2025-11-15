@@ -6,12 +6,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { listRecipes, startValidation, getStatistics } from '@/services/recipeAdminAPI';
-import type { Recipe, RecipeStatistics } from '@/types/recipeAdmin';
+import { startValidation, getStatistics } from '@/services/recipeAdminAPI';
+import type { RecipeStatistics } from '@/types/recipeAdmin';
 
 export function ValidatorTab() {
   const [statistics, setStatistics] = useState<RecipeStatistics | null>(null);
-  const [selectedRecipes, setSelectedRecipes] = useState<number[]>([]);
+  const [selectedRecipes] = useState<number[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   
   // Fixing options

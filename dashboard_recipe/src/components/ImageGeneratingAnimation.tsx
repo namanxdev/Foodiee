@@ -19,7 +19,7 @@ const ImageGeneratingAnimation = () => {
       setCurrentTip((prev) => (prev + 1) % cookingTips.length);
     }, 2000);
     return () => clearInterval(interval);
-  }, []);
+  }, [cookingTips.length]);
 
   return (
     <div className="flex flex-col items-center justify-center py-8 px-4">

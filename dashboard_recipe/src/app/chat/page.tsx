@@ -7,150 +7,189 @@
 
 "use client";
 
+import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import Header from "@/components/layout/Header";
+import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import AuthGate from "@/components/auth/AuthGate";
 import ChatInterface from "@/components/chat/ChatInterface";
+import { CinematicFooter, CinematicNav } from "@/components/layout";
 import { API_CONFIG } from "@/constants";
-import { FaArrowLeft } from "react-icons/fa";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
-export default function ChatPage() {
+interface ChatHistoryEntry extends Record<string, unknown> {
+  type?: string;
+  message_type?: string;
+  content?: string;
+}
+
+interface SessionHistoryResponse {
+  chat_history?: ChatHistoryEntry[];
+}
+
+function ChatPageContent() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
-  const router = useRouter();
+
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Get session_id from URL
-  useEffect(() => {
-    const urlSessionId = searchParams.get("session_id");
-    if (urlSessionId) {
-      setSessionId(urlSessionId);
-      loadSessionData(urlSessionId);
-    } else {
-      setError("No session ID provided");
-      setLoading(false);
-    }
-  }, [searchParams]);
+  const urlSessionId = useMemo(() => searchParams.get("session_id"), [searchParams]);
 
-  const loadSessionData = async (sid: string) => {
-    if (!session?.user?.email) {
+  useEffect(() => {
+    if (!urlSessionId) {
+      setError("No session ID provided");
       setLoading(false);
       return;
     }
+    setSessionId(urlSessionId);
+  }, [urlSessionId]);
 
-    setLoading(true);
-    setError(null);
+  const loadSessionData = useCallback(
+    async (sid: string) => {
+      if (!session?.user?.email) {
+        return;
+      }
 
-    try {
-      const headers: HeadersInit = {
-        "X-User-Email": session.user.email,
-      };
+      setLoading(true);
+      setError(null);
 
-      // Get session history to extract recommendations
-      const response = await fetch(
-        `${API_CONFIG.BASE_URL}/api/session/${sid}/history`,
-        { headers }
-      );
+      try {
+        const response = await fetch(`${API_CONFIG.BASE_URL}/api/session/${sid}/history`, {
+          headers: {
+            "X-User-Email": session.user.email,
+          },
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Extract recommendations from chat_history
-        if (data.chat_history && Array.isArray(data.chat_history) && data.chat_history.length > 0) {
-          // Look for chatbot message with recommendations
-          let botMessage = data.chat_history.find(
-            (msg: any) => (msg.type === "chatbot_message" || msg.message_type === "chatbot_message") && 
-                          msg.content && 
-                          (msg.content.includes("recommendations") || 
-                           msg.content.includes("recipe") ||
-                           msg.content.match(/^\d+\./))  // Starts with number (like "1. Recipe Name")
-          );
-          
-          if (!botMessage) {
-            // Fallback: use first chatbot message
-            botMessage = data.chat_history.find(
-              (msg: any) => msg.type === "chatbot_message" || msg.message_type === "chatbot_message"
+        if (response.ok) {
+          const data = (await response.json()) as SessionHistoryResponse;
+          const chatHistory = Array.isArray(data.chat_history) ? data.chat_history : [];
+
+          const recommendationSource = chatHistory.find((message) => {
+            const type = (message.type ?? message.message_type ?? "").toLowerCase();
+            if (type !== "chatbot_message" && type !== "assistant_message") {
+              return false;
+            }
+            return Boolean(
+              message.content &&
+                (message.content.includes("recommendations") ||
+                  message.content.includes("recipe") ||
+                  /^\d+\./.test(message.content))
+            );
+          });
+
+          if (recommendationSource?.content) {
+            setRecommendations(recommendationSource.content);
+          } else {
+            const firstAssistant = chatHistory.find((message) =>
+              ["chatbot_message", "assistant_message"].includes(
+                (message.type ?? message.message_type ?? "").toLowerCase()
+              )
+            );
+            setRecommendations(
+              firstAssistant?.content ?? "Loading your recipe recommendations..."
             );
           }
-          
-          if (botMessage && botMessage.content) {
-            setRecommendations(botMessage.content);
-          } else {
-            setRecommendations("Loading your recipe recommendations...");
-          }
+        } else if (response.status === 404) {
+          setError("Session not found. It may have expired or been deleted.");
         } else {
+          console.warn("Failed to load session data:", response.status);
           setRecommendations("Loading your recipe recommendations...");
         }
-      } else if (response.status === 404) {
-        setError("Session not found. It may have expired or been deleted.");
-      } else {
-        // Don't show error for other status codes - might be temporary
-        console.warn("Failed to load session data:", response.status);
+      } catch (err) {
+        console.error("Failed to load session:", err);
         setRecommendations("Loading your recipe recommendations...");
+      } finally {
+        setLoading(false);
       }
-    } catch (err: any) {
-      console.error("Failed to load session:", err);
-      // Don't show error on network failure - allow chat to load with empty recommendations
-      setRecommendations("Loading your recipe recommendations...");
-    } finally {
-      setLoading(false);
+    },
+    [session?.user?.email]
+  );
+
+  useEffect(() => {
+    if (!sessionId || !session?.user?.email) {
+      return;
     }
-  };
+    void loadSessionData(sessionId);
+  }, [loadSessionData, session?.user?.email, sessionId]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      <Header session={session} />
+    <div className="flex min-h-screen flex-col bg-[#050505] text-white">
+      <CinematicNav status={status} />
 
       <AuthGate status={status}>
-        <main className="container mx-auto px-4 py-8">
-          {/* Back Button */}
-          <button
-            onClick={() => router.push("/preferences")}
-            className="mb-6 flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 transition-colors"
-          >
-            <FaArrowLeft />
-            <span>Back to Preferences</span>
-          </button>
+        <main className="relative flex flex-1">
+          <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(255,90,47,0.28)_0%,_rgba(15,15,15,0.94)_45%,_rgba(5,5,5,1)_100%)]" />
 
-          {/* Loading State */}
-          {loading && (
-            <div className="flex items-center justify-center py-20">
-              <div className="text-center">
-                <span className="loading loading-spinner loading-lg text-orange-500"></span>
-                <p className="mt-4 text-gray-600 dark:text-gray-400">Loading chat session...</p>
+          <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-12 px-6 pb-24 pt-32 sm:px-10 md:px-12 lg:px-16">
+            <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+              <div className="space-y-4">
+                <Badge className="w-fit rounded-full border border-white/20 bg-white/10 px-4 py-1 text-xs uppercase tracking-[0.4em] text-[#FFD07F]">
+                  Step 3 · Cooking Flow
+                </Badge>
+                <div className="space-y-3">
+                  <h1 className="text-4xl font-semibold leading-tight text-white sm:text-5xl">
+                    Your cinematic kitchen is ready.
+                  </h1>
+                  <p className="max-w-2xl text-base text-white/70">
+                    Dive back into your session, pick up where you left off, and keep the culinary
+                    story unfolding with Foodiee&apos;s AI sous chef.
+                  </p>
+                </div>
               </div>
             </div>
-          )}
 
-          {/* Error State */}
-          {error && !loading && (
-            <div className="bg-red-100 dark:bg-red-900/50 border-2 border-red-500 dark:border-red-700 text-red-800 dark:text-red-200 p-6 rounded-xl text-center max-w-2xl mx-auto">
-              <p className="font-bold text-lg mb-2">Unable to Load Session</p>
-              <p className="mb-4">{error}</p>
-              <button
-                onClick={() => router.push("/preferences")}
-                className="bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-              >
-                Go to Preferences
-              </button>
-            </div>
-          )}
+            {loading && (
+              <div className="flex w-full flex-col items-center justify-center gap-4 rounded-3xl border border-white/10 bg-white/5 px-8 py-16 text-center text-sm text-white/70 shadow-[0_24px_60px_-30px_rgba(255,90,47,0.45)] backdrop-blur">
+                <span className="loading loading-spinner loading-lg text-[#FFD07F]" />
+                <p>Summoning your chat session...</p>
+              </div>
+            )}
 
-          {/* Chat Interface */}
-          {!loading && !error && sessionId && (
-            <ChatInterface
-              sessionId={sessionId}
-              initialRecommendations={recommendations}
-            />
-          )}
+            {error && !loading && (
+              <div className="w-full max-w-3xl rounded-3xl border border-red-400/40 bg-red-500/10 px-8 py-10 text-center shadow-[0_24px_60px_-30px_rgba(239,68,68,0.55)] backdrop-blur">
+                <h2 className="text-2xl font-semibold text-red-200">Unable to load session</h2>
+                <p className="mt-3 text-sm text-red-100/80">{error}</p>
+                <div className="mt-6 flex justify-center gap-3">
+                  <Button
+                    asChild
+                    variant="gradient"
+                    className="rounded-full bg-gradient-to-r from-[#FF5A2F] via-[#FF7A45] to-[#FFD07F] px-6 text-sm font-semibold text-[#1E1E1E]"
+                  >
+                    <Link href="/preferences">Start a new session</Link>
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {!loading && !error && sessionId && (
+              <ChatInterface sessionId={sessionId} initialRecommendations={recommendations} />
+            )}
+          </div>
         </main>
       </AuthGate>
+
+      <div className="px-6 pb-16 pt-10 sm:px-10 md:px-12 lg:px-16">
+        <CinematicFooter />
+      </div>
     </div>
   );
 }
 
+export default function ChatPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen flex-col bg-[#050505] text-white items-center justify-center">
+        <div className="text-center">
+          <span className="loading loading-spinner loading-lg text-[#FFD07F]" />
+          <p className="mt-4">Loading...</p>
+        </div>
+      </div>
+    }>
+      <ChatPageContent />
+    </Suspense>
+  );
+}

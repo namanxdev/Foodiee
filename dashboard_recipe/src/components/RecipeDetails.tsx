@@ -29,7 +29,7 @@ export default function RecipeDetails({ recipeName, recipeData, onStartCooking, 
         {/* Header */}
         <div className="bg-gradient-to-r from-green-500 via-teal-500 to-blue-500 p-8 text-white">
           <h2 className="text-4xl font-bold mb-2">{recipeName}</h2>
-          <p className="text-green-100">Let's cook something amazing!</p>
+          <p className="text-green-100">Let&apos;s cook something amazing!</p>
         </div>
 
         <div className="p-8 space-y-8">

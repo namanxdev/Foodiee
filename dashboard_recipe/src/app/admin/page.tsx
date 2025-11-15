@@ -129,10 +129,10 @@ export default function AdminPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-6 py-3 font-semibold transition-colors flex items-center gap-2 whitespace-nowrap ${
+                className={`px-6 py-3 font-semibold transition-all duration-300 flex items-center gap-2 whitespace-nowrap ${
                   activeTab === tab.id
-                    ? 'bg-gray-700 dark:bg-slate-700 text-white border-b-2 border-blue-500 dark:border-blue-400'
-                    : 'text-gray-400 dark:text-gray-400 hover:text-white dark:hover:text-white hover:bg-gray-750 dark:hover:bg-slate-700'
+                    ? 'bg-blue-600 dark:bg-blue-500 text-white border-b-[3px] border-blue-400 dark:border-blue-300 shadow-lg shadow-blue-500/30 scale-105 ring-2 ring-blue-400/30'
+                    : 'text-gray-400 dark:text-gray-400 hover:text-white dark:hover:text-white hover:bg-gray-700 dark:hover:bg-slate-700'
                 }`}
               >
                 <span>{tab.icon}</span>
