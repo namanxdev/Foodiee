@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getJobs, getJobLogs, cancelJob } from '@/services/recipeAdminAPI';
 import type { RegenerationJob, RegenerationLog } from '@/types/recipeAdmin';
 
@@ -17,9 +17,33 @@ export function JobsTab() {
   const [filter, setFilter] = useState<'all' | 'running' | 'completed' | 'failed'>('all');
   const [autoRefresh, setAutoRefresh] = useState(true);
 
+  const loadJobs = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await getJobs(
+        filter === 'all' ? undefined : filter,
+        100
+      );
+      setJobs(response.jobs);
+    } catch (error) {
+      console.error('Failed to load jobs:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [filter]);
+
+  const loadJobLogs = useCallback(async (jobId: number) => {
+    try {
+      const response = await getJobLogs(jobId);
+      setLogs(response.logs);
+    } catch (error) {
+      console.error('Failed to load logs:', error);
+    }
+  }, []);
+
   useEffect(() => {
     loadJobs();
-  }, [filter]);
+  }, [loadJobs]);
 
   // Auto-refresh every 5 seconds if enabled
   useEffect(() => {
@@ -33,31 +57,7 @@ export function JobsTab() {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [autoRefresh, selectedJob]);
-
-  const loadJobs = async () => {
-    try {
-      setLoading(true);
-      const response = await getJobs(
-        filter === 'all' ? undefined : filter,
-        100
-      );
-      setJobs(response.jobs);
-    } catch (error) {
-      console.error('Failed to load jobs:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadJobLogs = async (jobId: number) => {
-    try {
-      const response = await getJobLogs(jobId);
-      setLogs(response.logs);
-    } catch (error) {
-      console.error('Failed to load logs:', error);
-    }
-  };
+  }, [autoRefresh, selectedJob, loadJobs, loadJobLogs]);
 
   const handleSelectJob = async (job: RegenerationJob) => {
     setSelectedJob(job);

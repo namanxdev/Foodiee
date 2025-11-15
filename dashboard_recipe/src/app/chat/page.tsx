@@ -9,7 +9,7 @@
 
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import AuthGate from "@/components/auth/AuthGate";
 import ChatInterface from "@/components/chat/ChatInterface";
@@ -28,7 +28,7 @@ interface SessionHistoryResponse {
   chat_history?: ChatHistoryEntry[];
 }
 
-export default function ChatPage() {
+function ChatPageContent() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
 
@@ -176,5 +176,20 @@ export default function ChatPage() {
         <CinematicFooter />
       </div>
     </div>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen flex-col bg-[#050505] text-white items-center justify-center">
+        <div className="text-center">
+          <span className="loading loading-spinner loading-lg text-[#FFD07F]" />
+          <p className="mt-4">Loading...</p>
+        </div>
+      </div>
+    }>
+      <ChatPageContent />
+    </Suspense>
   );
 }

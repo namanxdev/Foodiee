@@ -1,14 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { FaClock, FaArrowLeft, FaChevronRight } from "react-icons/fa";
+import { FaArrowLeft, FaChevronRight } from "react-icons/fa";
 import MarkdownRenderer from "./MarkdownRenderer";
 import { API_CONFIG } from "@/constants";
+
+interface RecipeData {
+  success: boolean;
+  ingredients: string;
+  steps: string[];
+  tips: string;
+}
 
 interface RecipeListProps {
   recommendations: string;
   sessionId: string;
-  onSelectRecipe: (recipeName: string, data: any) => void;
+  onSelectRecipe: (recipeName: string, data: RecipeData) => void;
   onBack: () => void;
 }
 

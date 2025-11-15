@@ -7,15 +7,21 @@
 // Recipe recommendation services
 export * from './recipeApi';
 
-// Cooking steps services
-export * from './cookingStepsApi';
+// Cooking steps services - exclude getRecipeDetails to avoid conflict with recipeApi
+export {
+  getNextStep,
+  skipSteps,
+  generateStepImage,
+  generateStepImageGemini,
+  generateStepImageSD,
+  cookingStepsApi,
+} from './cookingStepsApi';
 
 // Top recipes services
 export * from './topRecipesApi';
 
 // Re-export commonly used functions with shorter names
 export { recipeApi } from './recipeApi';
-export { cookingStepsApi } from './cookingStepsApi';
 export {
   fetchTopRecipes,
   fetchRecipeById,

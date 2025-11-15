@@ -26,12 +26,6 @@ export default function ImageCredits({ onLimitReached, refreshTrigger }: ImageCr
   } | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (session?.user?.email) {
-      checkCredits();
-    }
-  }, [session, refreshTrigger]);
-
   const checkCredits = async () => {
     if (!session?.user?.email) {
       setLoading(false);
@@ -71,6 +65,13 @@ export default function ImageCredits({ onLimitReached, refreshTrigger }: ImageCr
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (session?.user?.email) {
+      checkCredits();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, refreshTrigger]);
 
   if (!session?.user?.email || loading) {
     return null;
@@ -130,7 +131,7 @@ export default function ImageCredits({ onLimitReached, refreshTrigger }: ImageCr
 
         {!credits.allowed && (
           <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-            You've reached your daily limit. Try again tomorrow!
+            You&apos;ve reached your daily limit. Try again tomorrow!
           </p>
         )}
       </div>

@@ -6,7 +6,6 @@ import {
   useMotionTemplate,
   useMotionValue,
   useSpring,
-  useTransform,
 } from "framer-motion";
 import { Children, isValidElement, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
@@ -102,7 +101,7 @@ export function FancyStagger({
       {items.map((child, index) => {
         const key =
           isValidElement(child) && child.key !== null && child.key !== undefined ? child.key : index;
-        const childClass = isValidElement(child) ? child.props.className : undefined;
+        const childClass = isValidElement(child) && 'props' in child && typeof child.props === 'object' && child.props !== null && 'className' in child.props ? (child.props as { className?: string }).className : undefined;
         return (
           <motion.div
             key={key}
@@ -258,7 +257,7 @@ function generateParticles(density: number, seed: number) {
 
 export function FancyParticleLayer({ className, density = 10, seed = 1 }: FancyParticleLayerProps) {
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const frameRef = useRef<number>();
+  const frameRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (typeof window === "undefined") {

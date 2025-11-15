@@ -10,7 +10,6 @@ interface RecipeCardSkeletonProps {
 
 export function RecipeCardSkeleton({
   variant = "expanded",
-  className,
 }: RecipeCardSkeletonProps) {
   const sharedImageClasses =
     variant === "compact"

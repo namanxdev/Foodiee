@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import type { RecipeStep } from "@/types/library";
 import {
@@ -21,13 +21,13 @@ export function StepReader({ steps, recipeTitle }: StepReaderProps) {
   const currentStep = steps[currentIndex];
   const progress = ((currentIndex + 1) / steps.length) * 100;
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     setCurrentIndex((prev) => Math.min(prev + 1, steps.length - 1));
-  };
+  }, [steps.length]);
 
-  const handlePrev = () => {
+  const handlePrev = useCallback(() => {
     setCurrentIndex((prev) => Math.max(prev - 1, 0));
-  };
+  }, []);
 
   const handleRegenerate = () => {
     setRegenerating(true);
@@ -40,7 +40,7 @@ export function StepReader({ steps, recipeTitle }: StepReaderProps) {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, []);
+  }, [handleNext, handlePrev]);
 
   useEffect(() => {
     if (!regenerating) return;

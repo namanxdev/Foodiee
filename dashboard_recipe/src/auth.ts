@@ -3,11 +3,51 @@ import Google from "next-auth/providers/google"
 import { API_CONFIG } from "@/constants"
  
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true, // Required for Vercel deployments
   providers: [Google],
+  cookies: {
+    sessionToken: {
+      name: `${process.env.NODE_ENV === 'production' ? '__Secure-' : ''}next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+    callbackUrl: {
+      name: `${process.env.NODE_ENV === 'production' ? '__Secure-' : ''}next-auth.callback-url`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+    csrfToken: {
+      name: `${process.env.NODE_ENV === 'production' ? '__Host-' : ''}next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+    pkceCodeVerifier: {
+      name: `${process.env.NODE_ENV === 'production' ? '__Secure-' : ''}next-auth.pkce.code_verifier`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 15, // 15 minutes
+      },
+    },
+  },
   callbacks: {
-    async signIn({ user, account, profile }) {
-      // Get image from profile.picture (Google) or user.image as fallback
-      const userImage = (profile as any)?.picture || user.image || (profile as any)?.image;
+    async signIn({ user, account }) {
+      // Get image from user.image
+      const userImage = user.image;
 
       // Sync user with backend database
       try {
@@ -27,19 +67,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         await response.json();
         
         return true; // Allow sign in
-      } catch (error) {
+      } catch {
         return true; // Still allow sign in even if sync fails
       }
     },
-    async jwt({ token, user, account, profile }) {
+    async jwt({ token, user }) {
       // Persist user data to token on sign in
       if (user) {
         token.id = user.id;
         token.name = user.name;
         token.email = user.email;
         
-        // Get image from profile.picture (Google) or user.image as fallback
-        const userImage = (profile as any)?.picture || user.image || (profile as any)?.image;
+        // Get image from user.image
+        const userImage = user.image;
         token.image = userImage;
       }
       return token;

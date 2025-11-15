@@ -1,6 +1,6 @@
 "use client";
 
-import { notFound } from "next/navigation";
+import { notFound, useParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -13,9 +13,12 @@ import { StepReader } from "@/components/recipe/StepReader";
 import { GlowingButton } from "@/components/ui/GlowingButton";
 import { RECIPE_LIBRARY_MOCKS } from "@/mock/recipes";
 
-export default function RecipePage({ params }: { params: { id: string } }) {
+export default function RecipePage() {
+  const params = useParams();
+  const id = params?.id as string;
+  
   const recipe = RECIPE_LIBRARY_MOCKS.find(
-    (item) => item.slug === params.id || item.id === params.id,
+    (item) => item.slug === id || item.id === id,
   );
 
   if (!recipe) {

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import AuthGate from "@/components/auth/AuthGate";
 import CinematicPreferencesForm from "@/components/preferences/CinematicPreferencesForm";
 import {
@@ -11,7 +11,7 @@ import {
   FancySpotlight,
 } from "@/components/animations/FancyComponents";
 
-export default function PreferencesPage() {
+function PreferencesContent() {
   const { status } = useSession();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -66,5 +66,19 @@ export default function PreferencesPage() {
         </AuthGate>
       </main>
     </div>
+  );
+}
+
+export default function PreferencesPage() {
+  return (
+    <Suspense fallback={
+      <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(255,90,47,0.28)_0%,_rgba(30,30,30,0.92)_40%,_rgba(10,10,10,1)_100%)] text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-xl">Loading...</div>
+        </div>
+      </div>
+    }>
+      <PreferencesContent />
+    </Suspense>
   );
 }

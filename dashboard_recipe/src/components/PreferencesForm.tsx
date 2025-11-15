@@ -148,7 +148,7 @@ export default function PreferencesForm({ onSubmit, prefillIngredient }: Prefere
         {/* Header */}
         <div className="bg-gradient-to-r from-orange-500 to-red-500 p-8 text-white">
           <h2 className="text-4xl font-bold mb-2">Tell Us Your Preferences</h2>
-          <p className="text-orange-100">Let's find the perfect recipe for you!</p>
+          <p className="text-orange-100">Let&apos;s find the perfect recipe for you!</p>
           {isVegetarian && (
             <div className="mt-4 flex items-center gap-2 bg-green-500/30 backdrop-blur-sm rounded-lg p-3 border border-green-300/50">
               <span className="text-green-100">🌱</span>
@@ -304,7 +304,7 @@ export default function PreferencesForm({ onSubmit, prefillIngredient }: Prefere
               </div>
             )}
             {formData.allergies.length === 0 && tempInput.allergies.trim() && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">💡 Press Enter or click "Add" to add this item</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">💡 Press Enter or click &quot;Add&quot; to add this item</p>
             )}
           </div>
 
@@ -352,7 +352,7 @@ export default function PreferencesForm({ onSubmit, prefillIngredient }: Prefere
               </div>
             )}
             {formData.dislikes.length === 0 && tempInput.dislikes.trim() && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">💡 Press Enter or click "Add" to add this item</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">💡 Press Enter or click &quot;Add&quot; to add this item</p>
             )}
           </div>
 
@@ -400,7 +400,7 @@ export default function PreferencesForm({ onSubmit, prefillIngredient }: Prefere
               </div>
             )}
             {formData.available_ingredients.length === 0 && tempInput.ingredients.trim() && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">💡 Press Enter or click "Add" to add this ingredient</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">💡 Press Enter or click &quot;Add&quot; to add this ingredient</p>
             )}
           </div>
 
