@@ -144,7 +144,8 @@ export async function fetchTopRecipes(
   // Detail level
   params.append('detailed', (filters.detailed !== undefined ? filters.detailed : false).toString());
 
-  const url = `${TOP_RECIPES_ENDPOINT}?${params.toString()}`;
+  // Note: Add trailing slash to match FastAPI route definition
+  const url = `${TOP_RECIPES_ENDPOINT}/?${params.toString()}`;
   
   try {
     const response = await fetch(url, {
@@ -181,6 +182,7 @@ export async function fetchTopRecipes(
  * Fetch a single recipe by ID with full details
  */
 export async function fetchRecipeById(id: number): Promise<TopRecipe> {
+  // Note: /{id} route doesn't need extra trailing slash
   const url = `${TOP_RECIPES_ENDPOINT}/${id}`;
   
   try {
@@ -226,6 +228,7 @@ export async function fetchRecipeById(id: number): Promise<TopRecipe> {
  * Fetch available filter options
  */
 export async function fetchAvailableFilters(): Promise<AvailableFilters> {
+  // Note: Sub-routes don't need extra trailing slash
   const url = `${TOP_RECIPES_ENDPOINT}/filters/available`;
   
   try {
@@ -259,6 +262,7 @@ export async function fetchAvailableFilters(): Promise<AvailableFilters> {
  * Fetch database statistics
  */
 export async function fetchRecipeStats(): Promise<unknown> {
+  // Note: Sub-routes don't need extra trailing slash
   const url = `${TOP_RECIPES_ENDPOINT}/stats/summary`;
   
   try {

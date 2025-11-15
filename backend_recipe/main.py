@@ -39,7 +39,8 @@ from api.images import set_recommender as set_images_recommender
 ALLOWED_ORIGINS = [
     "http://localhost:3000",     
     "http://127.0.0.1:3000",
-    "https://foodiee-six-lac.vercel.app",      
+    "https://foodiee-six-lac.vercel.app",    
+    "*"  
    
 ]
 
@@ -107,8 +108,9 @@ app = FastAPI(
     title="Recipe Recommender API",
     description="AI-powered recipe recommendation with RAG and image generation",
     version="1.0.0",
-    lifespan=lifespan,
-    redirect_slashes=False  # Disable automatic redirects for CORS compatibility
+    lifespan=lifespan
+    # Note: redirect_slashes=True by default - this is fine because our 
+    # custom middleware handles OPTIONS before redirects occur
 )
 
 # ============================================================
