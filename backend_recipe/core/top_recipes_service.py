@@ -136,6 +136,35 @@ def row_to_recipe(row: dict) -> TopRecipe:
             except:
                 step_image_urls = []
         
+        # Parse step-by-step guide fields
+        steps_beginner = safe_get('steps_beginner', None)
+        if isinstance(steps_beginner, str):
+            try:
+                steps_beginner = json.loads(steps_beginner)
+            except:
+                steps_beginner = None
+        
+        steps_advanced = safe_get('steps_advanced', None)
+        if isinstance(steps_advanced, str):
+            try:
+                steps_advanced = json.loads(steps_advanced)
+            except:
+                steps_advanced = None
+        
+        steps_beginner_images = safe_get('steps_beginner_images', None)
+        if isinstance(steps_beginner_images, str):
+            try:
+                steps_beginner_images = json.loads(steps_beginner_images)
+            except:
+                steps_beginner_images = None
+        
+        steps_advanced_images = safe_get('steps_advanced_images', None)
+        if isinstance(steps_advanced_images, str):
+            try:
+                steps_advanced_images = json.loads(steps_advanced_images)
+            except:
+                steps_advanced_images = None
+        
         return TopRecipe(
             id=row['id'],
             name=row.get('name', 'Unknown Recipe'),
@@ -161,10 +190,10 @@ def row_to_recipe(row: dict) -> TopRecipe:
             updated_at=str(row['updated_at']) if row.get('updated_at') else None,
             # New fields
             ingredients_image=row.get('ingredients_image'),
-            steps_beginner=row.get('steps_beginner') if row.get('steps_beginner') else None,
-            steps_advanced=row.get('steps_advanced') if row.get('steps_advanced') else None,
-            steps_beginner_images=row.get('steps_beginner_images') if row.get('steps_beginner_images') else None,
-            steps_advanced_images=row.get('steps_advanced_images') if row.get('steps_advanced_images') else None,
+            steps_beginner=steps_beginner,
+            steps_advanced=steps_advanced,
+            steps_beginner_images=steps_beginner_images,
+            steps_advanced_images=steps_advanced_images,
             ingredient_image_urls=row.get('ingredient_image_urls') if row.get('ingredient_image_urls') else None,
             validation_status=row.get('validation_status'),
             data_quality_score=row.get('data_quality_score'),
