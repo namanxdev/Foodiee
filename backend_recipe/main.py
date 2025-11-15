@@ -4,6 +4,10 @@ FastAPI Backend for Recipe Recommendation System with RAG + Image Generation
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 import config  # Import module to access variables dynamically
 
 # Import modularized components
@@ -103,11 +107,37 @@ app = FastAPI(
     title="Recipe Recommender API",
     description="AI-powered recipe recommendation with RAG and image generation",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    redirect_slashes=False  # Disable automatic redirects for CORS compatibility
 )
 
-# Add CORS middleware - using ALLOWED_ORIGINS defined above
-from fastapi.middleware.cors import CORSMiddleware
+# ============================================================
+# CORS Preflight Middleware
+# ============================================================
+# Custom middleware to handle OPTIONS requests before redirects occur
+# This prevents 301 redirects during CORS preflight, which browsers cannot follow
+class CORSPreflightMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # Handle OPTIONS requests immediately to avoid redirects
+        if request.method == "OPTIONS":
+            origin = request.headers.get("origin", "")
+            # Check if origin is in allowed list
+            allowed_origin = origin if origin in ALLOWED_ORIGINS else ALLOWED_ORIGINS[0]
+            
+            response = Response(status_code=200)
+            response.headers["Access-Control-Allow-Origin"] = allowed_origin
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Accept, Origin"
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Max-Age"] = "3600"
+            return response
+        
+        response = await call_next(request)
+        return response
+
+# Add custom preflight middleware BEFORE CORS middleware
+app.add_middleware(CORSPreflightMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
