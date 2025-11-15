@@ -5,9 +5,9 @@ import { API_CONFIG } from "@/constants"
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [Google],
   callbacks: {
-    async signIn({ user, account, profile }) {
-      // Get image from profile.picture (Google) or user.image as fallback
-      const userImage = (profile as any)?.picture || user.image || (profile as any)?.image;
+    async signIn({ user, account }) {
+      // Get image from user.image
+      const userImage = user.image;
 
       // Sync user with backend database
       try {
@@ -27,19 +27,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         await response.json();
         
         return true; // Allow sign in
-      } catch (error) {
+      } catch {
         return true; // Still allow sign in even if sync fails
       }
     },
-    async jwt({ token, user, account, profile }) {
+    async jwt({ token, user }) {
       // Persist user data to token on sign in
       if (user) {
         token.id = user.id;
         token.name = user.name;
         token.email = user.email;
         
-        // Get image from profile.picture (Google) or user.image as fallback
-        const userImage = (profile as any)?.picture || user.image || (profile as any)?.image;
+        // Get image from user.image
+        const userImage = user.image;
         token.image = userImage;
       }
       return token;

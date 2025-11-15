@@ -31,7 +31,6 @@ import type {
   RecipeSummary,
 } from "@/types/library";
 import type { LibraryFiltersState } from "@/components/library/types";
-import { cn } from "@/lib/utils";
 
 const INITIAL_FILTERS: LibraryFiltersState = {
   search: "",

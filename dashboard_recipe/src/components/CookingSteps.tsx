@@ -1,9 +1,23 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { FaArrowLeft, FaArrowRight, FaImage, FaCheckCircle, FaQuestionCircle } from "react-icons/fa";
+import { useState, useEffect, useCallback } from "react";
+import { FaArrowLeft, FaArrowRight, FaImage, FaQuestionCircle } from "react-icons/fa";
 import MarkdownRenderer from "./MarkdownRenderer";
 import { API_CONFIG } from "@/constants";
+
+interface StepData {
+  step_number: number;
+  total_steps: number;
+  step: string;
+  completed: boolean;
+  tips?: string;
+}
+
+interface ImageData {
+  image_data?: string;
+  description: string;
+  generation_type: string;
+}
 
 interface CookingStepsProps {
   sessionId: string;
@@ -13,16 +27,16 @@ interface CookingStepsProps {
   onBack: () => void;
 }
 
-export default function CookingSteps({ sessionId, recipeName, steps, onFinish, onBack }: CookingStepsProps) {
-  const [currentStepData, setCurrentStepData] = useState<any>(null);
+export default function CookingSteps({ sessionId, recipeName, onFinish, onBack }: CookingStepsProps) {
+  const [currentStepData, setCurrentStepData] = useState<StepData | null>(null);
   const [loading, setLoading] = useState(false);
   const [imageLoading, setImageLoading] = useState(false);
-  const [imageData, setImageData] = useState<any>(null);
+  const [imageData, setImageData] = useState<ImageData | null>(null);
   const [showAlternatives, setShowAlternatives] = useState(false);
   const [missingIngredient, setMissingIngredient] = useState("");
   const [alternatives, setAlternatives] = useState("");
 
-  const loadNextStep = async () => {
+  const loadNextStep = useCallback(async () => {
     setLoading(true);
     setImageData(null);
 
@@ -39,7 +53,7 @@ export default function CookingSteps({ sessionId, recipeName, steps, onFinish, o
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionId]);
 
   const generateImage = async () => {
     setImageLoading(true);
@@ -89,7 +103,7 @@ export default function CookingSteps({ sessionId, recipeName, steps, onFinish, o
 
   useEffect(() => {
     loadNextStep();
-  }, []);
+  }, [loadNextStep]);
 
   if (!currentStepData) {
     return (
@@ -106,11 +120,11 @@ export default function CookingSteps({ sessionId, recipeName, steps, onFinish, o
           <div className="card-body items-center text-center p-12">
             <div className="text-8xl mb-6 animate-bounce">🎉</div>
             <h2 className="card-title text-4xl mb-4 text-green-700">Congratulations!</h2>
-            <p className="text-xl text-black dark:text-gray-200 mb-6">You've completed all the cooking steps!</p>
+            <p className="text-xl text-black dark:text-gray-200 mb-6">You&apos;ve completed all the cooking steps!</p>
             
             {currentStepData.tips && (
               <div className="mt-6 p-4 bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 rounded-xl">
-                <h4 className="font-bold mb-2 text-amber-700 dark:text-amber-300">💡 Chef's Tips:</h4>
+                <h4 className="font-bold mb-2 text-amber-700 dark:text-amber-300">💡 Chef&apos;s Tips:</h4>
                 <MarkdownRenderer content={currentStepData.tips} />
               </div>
             )}
@@ -247,7 +261,7 @@ export default function CookingSteps({ sessionId, recipeName, steps, onFinish, o
             {!imageData && !imageLoading && (
               <div className="text-center py-12">
                 <FaImage className="text-8xl text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">Click "Generate Visual Guide" to see an image</p>
+                <p className="text-gray-500 dark:text-gray-400">Click &quot;Generate Visual Guide&quot; to see an image</p>
               </div>
             )}
 
@@ -262,6 +276,7 @@ export default function CookingSteps({ sessionId, recipeName, steps, onFinish, o
               <div className="w-full">
                 <div className="bg-gradient-to-br from-purple-100 to-pink-100 p-2 rounded-2xl mb-4">
                   {imageData.image_data ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={`data:image/png;base64,${imageData.image_data}`}
                       alt="Step visualization"

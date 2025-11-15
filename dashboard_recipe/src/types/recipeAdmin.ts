@@ -109,12 +109,12 @@ export interface RegenerationLog {
   log_level: 'INFO' | 'WARNING' | 'ERROR' | 'SUCCESS';
   message: string;
   operation: 'main_image' | 'ingredients_image' | 'steps_images' | 'steps_text' | 'ingredients_text' | 'step_images_beginner' | 'step_images_advanced' | null;
-  details: any;
+  details: unknown;
   metadata?: {
     prompt?: string;
     step?: number;
     s3_url?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   created_at: string;
 }
