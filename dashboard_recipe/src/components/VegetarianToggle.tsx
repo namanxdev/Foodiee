@@ -59,7 +59,7 @@ export default function VegetarianToggle({ variant = "filter", className = "" }:
         <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
           <p className="text-xs sm:text-sm text-green-600 dark:text-green-400 flex items-center gap-2">
             <FaLeaf className="text-xs flex-shrink-0" />
-            <span>Vegetarian filter is active. Only recipes with "Vegetarian" dietary tag will be shown.</span>
+            <span>Vegetarian filter is active. Only recipes with &quot;Vegetarian&quot; dietary tag will be shown.</span>
           </p>
         </div>
       )}

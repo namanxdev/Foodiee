@@ -39,8 +39,8 @@ export function ConfigTab() {
         setDefaultLimit(value?.default || 10);
         setUserLimits(value?.per_user || {});
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to load config');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load config');
     } finally {
       setLoading(false);
     }
@@ -64,8 +64,8 @@ export function ConfigTab() {
         setConfig(response.config || config);
         setTimeout(() => setSuccess(null), 3000);
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to update config');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update config');
     } finally {
       setSaving(false);
     }
@@ -90,8 +90,8 @@ export function ConfigTab() {
       setNewUserLimit(10);
       setSuccess(`Limit for ${newUserEmail} set to ${newUserLimit}`);
       setTimeout(() => setSuccess(null), 3000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to update user limit');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update user limit');
     } finally {
       setSaving(false);
     }
@@ -114,8 +114,8 @@ export function ConfigTab() {
       setUserLimits(updatedLimits);
       setSuccess(`Limit for ${email} removed (will use default)`);
       setTimeout(() => setSuccess(null), 3000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to remove user limit');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove user limit');
     } finally {
       setSaving(false);
     }

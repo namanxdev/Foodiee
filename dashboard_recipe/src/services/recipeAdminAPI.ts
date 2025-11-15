@@ -186,7 +186,7 @@ export const getJobLogs = async (jobId: number, limit: number = 100): Promise<Jo
 // Export & Statistics
 // ============================================================================
 
-export const exportRecipes = async (format: 'json' | 'csv'): Promise<any> => {
+export const exportRecipes = async (format: 'json' | 'csv'): Promise<Blob | unknown> => {
   const response = await fetch(`${API_BASE_URL}/export/recipes?format=${format}`, {
     headers: getHeaders(),
   });
@@ -196,7 +196,7 @@ export const exportRecipes = async (format: 'json' | 'csv'): Promise<any> => {
     return response.blob();
   }
 
-  return handleResponse<any>(response);
+  return handleResponse<unknown>(response);
 };
 
 export const getStatistics = async (): Promise<StatisticsResponse> => {
@@ -298,7 +298,7 @@ export const cancelJob = async (jobId: number): Promise<{ message: string }> => 
 export interface ConfigItem {
   id: number;
   config_key: string;
-  config_value: any;
+  config_value: unknown;
   description: string | null;
   updated_by: string | null;
   updated_at: string;
@@ -324,7 +324,7 @@ export const getConfig = async (configKey?: string): Promise<ConfigResponse> => 
 
 export const updateConfig = async (
   configKey: string,
-  configValue: any,
+  configValue: unknown,
   description?: string
 ): Promise<ConfigResponse> => {
   const response = await fetch(`${API_BASE_URL}/config/${encodeURIComponent(configKey)}`, {

@@ -52,7 +52,7 @@ export function validateUserPreferences(
   // Validate region
   if (!preferences.region || !isValidString(preferences.region)) {
     errors.region = 'Please select a region';
-  } else if (!FORM_OPTIONS.regions.includes(preferences.region as any)) {
+  } else if (!FORM_OPTIONS.regions.includes(preferences.region as (typeof FORM_OPTIONS.regions)[number])) {
     errors.region = 'Invalid region selected';
   }
 
@@ -67,7 +67,7 @@ export function validateUserPreferences(
   }
 
   // Validate time available
-  if (preferences.time_available && !FORM_OPTIONS.timeOptions.includes(preferences.time_available as any)) {
+  if (preferences.time_available && !FORM_OPTIONS.timeOptions.includes(preferences.time_available as (typeof FORM_OPTIONS.timeOptions)[number])) {
     errors.time_available = 'Invalid time selection';
   }
 

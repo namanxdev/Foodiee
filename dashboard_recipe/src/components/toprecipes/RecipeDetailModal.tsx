@@ -294,7 +294,7 @@ export default function RecipeDetailModal({ recipeId, onClose }: RecipeDetailMod
                   
                   {completedSteps.length === recipe.steps.length && recipe.steps.length > 0 && (
                     <div className="rounded-3xl border border-emerald-400/40 bg-emerald-500/10 backdrop-blur-xl p-6 text-center font-bold text-emerald-200 shadow-lg shadow-emerald-500/20">
-                      🎉 Congratulations! You've completed all steps!
+                      🎉 Congratulations! You&apos;ve completed all steps!
                     </div>
                   )}
                 </div>

@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import { searchRecipes } from '@/services/recipeAdminAPI';
-import type { Recipe } from '@/types/recipeAdmin';
+import type { Recipe, Ingredient, StepImage } from '@/types/recipeAdmin';
 import { API_CONFIG } from '@/constants';
 
 // Types for generation process
@@ -21,12 +21,12 @@ interface GeneratedRecipe {
   name: string;
   description: string;
   region: string;
-  ingredients: any[];
+  ingredients: Ingredient[];
   steps_beginner: string[];
   steps_advanced: string[];
   ingredients_image: string | null;
-  steps_beginner_images: any[];
-  steps_advanced_images: any[];
+  steps_beginner_images: StepImage[];
+  steps_advanced_images: StepImage[];
   image_url: string | null;
 }
 
@@ -148,7 +148,7 @@ export function SpecificGenerationTab() {
           if (job.logs && Array.isArray(job.logs)) {
             // Reverse logs to show newest first, then reverse back for chronological order
             const logs = [...job.logs].reverse();
-            setGenerationProgress(logs.map((log: any) => ({
+            setGenerationProgress(logs.map((log: { message: string; log_level?: string; created_at: string }) => ({
               message: log.message,
               level: log.log_level || 'INFO',
               timestamp: log.created_at
@@ -385,7 +385,7 @@ export function SpecificGenerationTab() {
           </div>
 
           <div className="mt-4 text-sm text-gray-400">
-            We'll search our database to make sure this dish doesn't already exist
+            We&apos;ll search our database to make sure this dish doesn&apos;t already exist
           </div>
         </div>
       )}
@@ -435,7 +435,7 @@ export function SpecificGenerationTab() {
             <div className="bg-green-900/30 border border-green-700 rounded p-4 mb-6">
               <p className="text-green-200 font-semibold">✅ No Duplicates Found</p>
               <p className="text-green-200 text-sm mt-1">
-                Great! We can proceed with generating a new recipe for <strong>"{dishName}"</strong>
+                Great! We can proceed with generating a new recipe for <strong>&quot;{dishName}&quot;</strong>
               </p>
             </div>
           )}

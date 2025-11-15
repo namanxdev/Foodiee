@@ -8,7 +8,7 @@
 
 import { useState, useEffect } from 'react';
 import { listRecipes, updateRecipe, getStatistics, searchRecipes, deleteRecipe } from '@/services/recipeAdminAPI';
-import type { Recipe, RecipeStatistics, StepImage } from '@/types/recipeAdmin';
+import type { Recipe, RecipeStatistics, StepImage, Ingredient } from '@/types/recipeAdmin';
 
 // Image Modal Component
 function ImageModal({ imageUrl, onClose }: { imageUrl: string; onClose: () => void }) {
@@ -209,7 +209,7 @@ export function DataManagerTab() {
   const [statistics, setStatistics] = useState<RecipeStatistics | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [editedFields, setEditedFields] = useState<any>({});
+  const [editedFields, setEditedFields] = useState<Partial<Recipe>>({});
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const [loading, setLoading] = useState(false);
@@ -751,17 +751,24 @@ export function DataManagerTab() {
 
                 {isEditing ? (
                   <div className="space-y-2 max-h-80 overflow-y-auto">
-                    {(editedFields.ingredients ?? selectedRecipe.ingredients ?? []).map((ing: any, idx: number) => (
+                    {(editedFields.ingredients ?? selectedRecipe.ingredients ?? []).map((ing: Ingredient | string, idx: number) => {
+                      const ingObj = typeof ing === 'string' ? { name: ing, quantity: '', unit: '' } : ing;
+                      return (
                       <div key={idx} className="flex gap-2 items-start bg-gray-700 p-2 rounded">
                         <span className="text-gray-400 text-sm mt-2 min-w-[24px]">{idx + 1}.</span>
                         <div className="flex-1 grid grid-cols-2 gap-2">
                           <input
                             type="text"
                             placeholder="Ingredient name"
-                            value={ing.name || ing.ingredient || ''}
+                            value={ingObj.name || ''}
                             onChange={(e) => {
-                              const newIngredients = [...(editedFields.ingredients ?? selectedRecipe.ingredients ?? [])];
-                              newIngredients[idx] = { ...newIngredients[idx], name: e.target.value, ingredient: e.target.value };
+                              const currentIngredients = editedFields.ingredients ?? selectedRecipe.ingredients ?? [];
+                              const ingredientsArray = Array.isArray(currentIngredients) ? currentIngredients : [];
+                              const newIngredients = [...ingredientsArray];
+                              const currentIng = typeof newIngredients[idx] === 'string' 
+                                ? { name: newIngredients[idx] as string, quantity: '', unit: '' } 
+                                : (newIngredients[idx] as Ingredient);
+                              newIngredients[idx] = { ...currentIng, name: e.target.value };
                               setEditedFields({ ...editedFields, ingredients: newIngredients });
                             }}
                             className="px-2 py-1 rounded bg-gray-800 text-white border border-gray-600 text-sm"
@@ -769,10 +776,15 @@ export function DataManagerTab() {
                           <input
                             type="text"
                             placeholder="Quantity"
-                            value={ing.quantity || ''}
+                            value={ingObj.quantity || ''}
                             onChange={(e) => {
-                              const newIngredients = [...(editedFields.ingredients ?? selectedRecipe.ingredients ?? [])];
-                              newIngredients[idx] = { ...newIngredients[idx], quantity: e.target.value };
+                              const currentIngredients = editedFields.ingredients ?? selectedRecipe.ingredients ?? [];
+                              const ingredientsArray = Array.isArray(currentIngredients) ? currentIngredients : [];
+                              const newIngredients = [...ingredientsArray];
+                              const currentIng = typeof newIngredients[idx] === 'string' 
+                                ? { name: newIngredients[idx] as string, quantity: '', unit: '' } 
+                                : (newIngredients[idx] as Ingredient);
+                              newIngredients[idx] = { ...currentIng, quantity: e.target.value };
                               setEditedFields({ ...editedFields, ingredients: newIngredients });
                             }}
                             className="px-2 py-1 rounded bg-gray-800 text-white border border-gray-600 text-sm"
@@ -780,7 +792,9 @@ export function DataManagerTab() {
                         </div>
                         <button
                           onClick={() => {
-                            const newIngredients = (editedFields.ingredients ?? selectedRecipe.ingredients ?? []).filter((_: any, i: number) => i !== idx);
+                            const currentIngredients = editedFields.ingredients ?? selectedRecipe.ingredients ?? [];
+                            const ingredientsArray = Array.isArray(currentIngredients) ? currentIngredients : [];
+                            const newIngredients = ingredientsArray.filter((_, i: number) => i !== idx);
                             setEditedFields({ ...editedFields, ingredients: newIngredients });
                           }}
                           className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs"
@@ -789,17 +803,23 @@ export function DataManagerTab() {
                           🗑️
                         </button>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="bg-gray-700 p-3 rounded space-y-1 max-h-60 overflow-y-auto">
-                    {(Array.isArray(selectedRecipe.ingredients) ? selectedRecipe.ingredients : []).map((ing: any, idx: number) => (
+                    {(Array.isArray(selectedRecipe.ingredients) ? selectedRecipe.ingredients : []).map((ing: Ingredient | string, idx: number) => {
+                      const ingName = typeof ing === 'string' ? ing : (ing.name || 'N/A');
+                      return (
                       <div key={idx} className="flex gap-2 text-sm">
                         <span className="text-blue-400 font-bold min-w-[24px]">{idx + 1}.</span>
-                        <span className="text-gray-300 flex-1">{ing.name || ing.ingredient || 'N/A'}</span>
-                        <span className="text-green-400">{ing.quantity || ''}</span>
+                        <span className="text-gray-300 flex-1">{ingName}</span>
+                        {typeof ing === 'object' && (
+                          <span className="text-green-400">{ing.quantity || ''}</span>
+                        )}
                       </div>
-                    ))}
+                      );
+                    })}
                     {(!selectedRecipe.ingredients || !Array.isArray(selectedRecipe.ingredients) || selectedRecipe.ingredients.length === 0) && (
                       <div className="text-gray-400 italic text-sm">No ingredients listed</div>
                     )}
