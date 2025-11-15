@@ -22,6 +22,12 @@ export interface TasteDetail {
   intensity: number;
 }
 
+export interface StepImage {
+  url: string;
+  step_index: number;
+  generated_at?: string;
+}
+
 export interface TopRecipe {
   id: number;
   name: string;
@@ -45,6 +51,12 @@ export interface TopRecipe {
   source: string;
   created_at: string;
   updated_at: string;
+  // Step-by-step guide fields
+  steps_beginner?: string[];
+  steps_advanced?: string[];
+  steps_beginner_images?: StepImage[];
+  steps_advanced_images?: StepImage[];
+  ingredients_image?: string;
 }
 
 export interface TopRecipeSummary {

@@ -119,7 +119,12 @@ def convert_recipe_to_model(recipe: TopRecipe) -> TopRecipeModel:
         step_image_urls=recipe.step_image_urls,
         rating=recipe.rating,
         popularity_score=recipe.popularity_score,
-        source=recipe.source
+        source=recipe.source,
+        steps_beginner=recipe.steps_beginner,
+        steps_advanced=recipe.steps_advanced,
+        steps_beginner_images=recipe.steps_beginner_images,
+        steps_advanced_images=recipe.steps_advanced_images,
+        ingredients_image=recipe.ingredients_image
     )
 
 

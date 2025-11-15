@@ -45,6 +45,12 @@ class TopRecipeModel(BaseModel):
     source: str = Field(default="gemini", description="Recipe source")
     created_at: Optional[str] = Field(None, description="Creation timestamp")
     updated_at: Optional[str] = Field(None, description="Last update timestamp")
+    # Step-by-step guide fields
+    steps_beginner: Optional[List[str]] = Field(None, description="Beginner-level cooking steps")
+    steps_advanced: Optional[List[str]] = Field(None, description="Advanced-level cooking steps")
+    steps_beginner_images: Optional[List[dict]] = Field(None, description="Beginner step images")
+    steps_advanced_images: Optional[List[dict]] = Field(None, description="Advanced step images")
+    ingredients_image: Optional[str] = Field(None, description="Image showing all ingredients")
 
 
 class TopRecipeSummaryModel(BaseModel):

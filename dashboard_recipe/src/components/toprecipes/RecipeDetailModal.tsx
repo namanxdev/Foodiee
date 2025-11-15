@@ -5,9 +5,10 @@
  */
 
 import { useEffect, useState } from 'react';
-import { X, Clock, Flame, Star, CheckCircle2 } from 'lucide-react';
+import { X, Clock, Flame, Star, CheckCircle2, BookOpen } from 'lucide-react';
 import { TopRecipe, fetchRecipeById, formatTime } from '@/services/topRecipesApi';
 import { Badge } from '@/components/ui/badge';
+import LevelSelectionDialog from './LevelSelectionDialog';
 
 interface RecipeDetailModalProps {
   recipeId: number | null;
@@ -20,6 +21,7 @@ export default function RecipeDetailModal({ recipeId, onClose }: RecipeDetailMod
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'ingredients' | 'steps'>('ingredients');
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [showLevelDialog, setShowLevelDialog] = useState(false);
 
   useEffect(() => {
     // Reset state when recipeId changes
@@ -190,33 +192,44 @@ export default function RecipeDetailModal({ recipeId, onClose }: RecipeDetailMod
                 </div>
               </div>
 
-              {/* Tabs */}
-              <div className="flex gap-4 mb-6 border-b border-white/10">
+              {/* Tabs and Step-by-Step Guide Button */}
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 border-b border-white/10 pb-0">
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => setActiveTab('ingredients')}
+                    className={`pb-3 px-4 font-medium transition-colors relative ${
+                      activeTab === 'ingredients'
+                        ? 'text-[#FFD07F]'
+                        : 'text-white/60 hover:text-white/80'
+                    }`}
+                  >
+                    Ingredients ({recipe.ingredients.length})
+                    {activeTab === 'ingredients' && (
+                      <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#FF5A2F] via-[#FF7A45] to-[#FFD07F]"></span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('steps')}
+                    className={`pb-3 px-4 font-medium transition-colors relative ${
+                      activeTab === 'steps'
+                        ? 'text-[#FFD07F]'
+                        : 'text-white/60 hover:text-white/80'
+                    }`}
+                  >
+                    Steps ({recipe.steps.length})
+                    {activeTab === 'steps' && (
+                      <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#FF5A2F] via-[#FF7A45] to-[#FFD07F]"></span>
+                    )}
+                  </button>
+                </div>
+                
+                {/* Step by Step Guide Button */}
                 <button
-                  onClick={() => setActiveTab('ingredients')}
-                  className={`pb-3 px-4 font-medium transition-colors relative ${
-                    activeTab === 'ingredients'
-                      ? 'text-[#FFD07F]'
-                      : 'text-white/60 hover:text-white/80'
-                  }`}
+                  onClick={() => setShowLevelDialog(true)}
+                  className="flex items-center gap-2 px-6 py-2.5 mb-3 md:mb-0 rounded-full bg-gradient-to-r from-[#FF5A2F] via-[#FF7A45] to-[#FFD07F] text-[#1E1E1E] font-semibold text-sm shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 transition-all hover:scale-[1.02]"
                 >
-                  Ingredients ({recipe.ingredients.length})
-                  {activeTab === 'ingredients' && (
-                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#FF5A2F] via-[#FF7A45] to-[#FFD07F]"></span>
-                  )}
-                </button>
-                <button
-                  onClick={() => setActiveTab('steps')}
-                  className={`pb-3 px-4 font-medium transition-colors relative ${
-                    activeTab === 'steps'
-                      ? 'text-[#FFD07F]'
-                      : 'text-white/60 hover:text-white/80'
-                  }`}
-                >
-                  Steps ({recipe.steps.length})
-                  {activeTab === 'steps' && (
-                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#FF5A2F] via-[#FF7A45] to-[#FFD07F]"></span>
-                  )}
+                  <BookOpen className="h-4 w-4" strokeWidth={2} />
+                  Step by Step Guide
                 </button>
               </div>
 
@@ -303,6 +316,16 @@ export default function RecipeDetailModal({ recipeId, onClose }: RecipeDetailMod
           )}
         </div>
       </div>
+      
+      {/* Level Selection Dialog */}
+      {recipe && (
+        <LevelSelectionDialog
+          recipeId={recipe.id}
+          recipeName={recipe.name}
+          isOpen={showLevelDialog}
+          onClose={() => setShowLevelDialog(false)}
+        />
+      )}
     </div>
   );
 }
