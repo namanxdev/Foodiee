@@ -152,10 +152,20 @@ export async function fetchRecipeById(id: number): Promise<TopRecipe> {
   const response = await fetch(url);
   
   if (!response.ok) {
-    if (response.status === 404) {
-      throw new Error('Recipe not found');
+    // Try to get error message from response
+    let errorMessage = response.statusText;
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.detail || errorData.message || response.statusText;
+    } catch (e) {
+      const errorText = await response.text();
+      errorMessage = errorText || response.statusText;
     }
-    throw new Error(`Failed to fetch recipe: ${response.statusText}`);
+    
+    if (response.status === 404) {
+      throw new Error(`Recipe not found (ID: ${id})`);
+    }
+    throw new Error(`Failed to fetch recipe: ${errorMessage}`);
   }
 
   return response.json();

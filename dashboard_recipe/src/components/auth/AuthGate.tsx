@@ -1,9 +1,12 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 import { signIn } from "next-auth/react";
-import { FaUtensils } from "react-icons/fa";
-import { FcGoogle } from "react-icons/fc";
+import { ChefHat, Lightbulb, Sparkles } from "lucide-react";
+
 import LoadingSpinner from "../LoadingSpinner";
+import { Button } from "@/components/ui/button";
 
 interface AuthGateProps {
   status: "loading" | "authenticated" | "unauthenticated";
@@ -21,37 +24,60 @@ export default function AuthGate({ status, children }: AuthGateProps) {
 
   if (status === "unauthenticated") {
     return (
-      <div className="max-w-md mx-auto mt-20">
-        <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
-          <div className="mb-6">
-            <FaUtensils className="text-orange-500 text-6xl mx-auto mb-4" />
-            <h2 className="text-3xl font-bold text-gray-800 mb-2">Welcome to Foodiee</h2>
-            <p className="text-gray-600">Your personal AI cooking assistant</p>
-          </div>
-          
-          <div className="space-y-4">
-            <p className="text-gray-700">
-              Sign in to get personalized recipe recommendations and step-by-step cooking guidance
-            </p>
-            
-            <button
-              onClick={() => signIn("google")}
-              className="w-full bg-white border-2 border-gray-300 hover:border-orange-500 text-gray-700 font-semibold py-4 px-6 rounded-lg transition-all flex items-center justify-center gap-3 hover:shadow-lg"
-            >
-              <FcGoogle className="text-2xl" />
-              <span>Sign in with Google</span>
-            </button>
+      <div className="mx-auto mt-20 max-w-xl px-6">
+        <div className="rounded-3xl border border-orange-100/60 bg-white/90 p-10 text-center shadow-xl shadow-brand/20 backdrop-blur">
+          <div className="mb-8 flex flex-col items-center gap-4">
+            <span className="flex h-14 w-14 items-center justify-center rounded-3xl bg-brand-gradient text-white shadow-brand-glow">
+              <ChefHat className="h-6 w-6" />
+            </span>
+            <div className="space-y-2">
+              <h2 className="text-3xl font-bold text-slate-900">
+                Welcome to Foodiee Kitchen
+              </h2>
+              <p className="text-base text-slate-600">
+                Sign in to unlock tailored recipe paths, adaptive cooking timelines, and grocery-ready meal plans.
+              </p>
+            </div>
           </div>
 
-          <div className="mt-6 text-sm text-gray-500">
-            <p>✨ Get AI-powered recipe suggestions</p>
-            <p>👨‍🍳 Step-by-step cooking instructions</p>
-            <p>🖼️ Visual guides for each step</p>
+          <div className="grid gap-3 text-left text-sm text-slate-600">
+            <FeatureRow
+              icon={<Sparkles className="h-4 w-4 text-orange-500" />}
+              text="AI-generated dishes based on your pantry and cravings"
+            />
+            <FeatureRow
+              icon={<Lightbulb className="h-4 w-4 text-orange-500" />}
+              text="Step-by-step coaching with timers, aroma cues, and plating tips"
+            />
+            <FeatureRow
+              icon={<ChefHat className="h-4 w-4 text-orange-500" />}
+              text="Save collections, meal plans, and shareable recipe journeys"
+            />
           </div>
+
+          <Button
+            size="lg"
+            variant="gradient"
+            className="mt-8 w-full rounded-full"
+            onClick={() => signIn("google")}
+          >
+            Continue with Google
+          </Button>
         </div>
       </div>
     );
   }
 
   return <>{children}</>;
+}
+
+function FeatureRow({ icon, text }: { icon: ReactNode; text: string }) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-orange-100/60 bg-white/80 px-4 py-3 shadow-sm">
+      <span className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-orange-100/70">
+        {icon}
+      </span>
+      <span className="text-sm font-medium">{text}</span>
+    </div>
+  );
 }

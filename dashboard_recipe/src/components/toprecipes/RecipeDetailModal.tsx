@@ -5,8 +5,9 @@
  */
 
 import { useEffect, useState } from 'react';
-import { FaTimes, FaClock, FaFire, FaUsers, FaStar, FaCheckCircle } from 'react-icons/fa';
-import { TopRecipe, fetchRecipeById, formatTime, getDifficultyColor } from '@/services/topRecipesApi';
+import { X, Clock, Flame, Star, CheckCircle2 } from 'lucide-react';
+import { TopRecipe, fetchRecipeById, formatTime } from '@/services/topRecipesApi';
+import { Badge } from '@/components/ui/badge';
 
 interface RecipeDetailModalProps {
   recipeId: number | null;
@@ -21,9 +22,15 @@ export default function RecipeDetailModal({ recipeId, onClose }: RecipeDetailMod
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
 
   useEffect(() => {
+    // Reset state when recipeId changes
+    setRecipe(null);
+    setError(null);
+    setCompletedSteps([]);
+    setActiveTab('ingredients');
+    
     if (recipeId) {
       setLoading(true);
-      setError(null);
+      
       fetchRecipeById(recipeId)
         .then((data) => {
           setRecipe(data);
@@ -32,7 +39,10 @@ export default function RecipeDetailModal({ recipeId, onClose }: RecipeDetailMod
         .catch((err) => {
           setError(err.message);
           setLoading(false);
+          setRecipe(null);
         });
+    } else {
+      setLoading(false);
     }
   }, [recipeId]);
 
@@ -47,12 +57,18 @@ export default function RecipeDetailModal({ recipeId, onClose }: RecipeDetailMod
   if (!recipeId) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div 
+        className="relative rounded-3xl border border-white/20 bg-white/[0.08] backdrop-blur-2xl shadow-2xl shadow-black/60 max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="relative">
           {recipe?.image_url && (
-            <div className="h-64 overflow-hidden">
+            <div className="h-64 overflow-hidden bg-white/5">
               <img
                 src={recipe.image_url}
                 alt={recipe.name}
@@ -64,30 +80,39 @@ export default function RecipeDetailModal({ recipeId, onClose }: RecipeDetailMod
           {/* Close Button */}
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 bg-white dark:bg-gray-800 p-3 rounded-full shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="absolute top-4 right-4 rounded-full border border-white/20 bg-white/[0.15] backdrop-blur-md p-3 shadow-lg shadow-black/20 text-white hover:bg-white/[0.25] transition-all"
           >
-            <FaTimes className="text-gray-700 dark:text-gray-300" />
+            <X className="h-5 w-5" strokeWidth={1.5} />
           </button>
 
           {/* Recipe Title Overlay */}
           {recipe && (
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-6">
-              <h2 className="text-3xl font-bold text-white mb-2">{recipe.name}</h2>
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6">
+              <h2 className="text-3xl font-semibold text-white mb-3">{recipe.name}</h2>
               <div className="flex flex-wrap gap-2">
-                <span className="px-3 py-1 bg-gray-800/70 text-gray-300 rounded-full text-xs font-mono border border-gray-600">
+                <Badge variant="outline" size="sm" className="text-xs border-white/20 bg-white/10 text-white/80 font-mono">
                   ID: #{recipe.id}
-                </span>
-                <span className={`px-3 py-1 rounded-full text-sm font-bold ${getDifficultyColor(recipe.difficulty)}`}>
+                </Badge>
+                <Badge 
+                  variant="glow"
+                  className={`rounded-full text-xs font-semibold border ${
+                    recipe.difficulty === 'Easy' 
+                      ? 'border-green-400/40 bg-green-500/20 text-green-200 shadow-green-500/20' 
+                      : recipe.difficulty === 'Medium' 
+                      ? 'border-yellow-400/40 bg-yellow-500/20 text-yellow-200 shadow-yellow-500/20'
+                      : 'border-red-400/40 bg-red-500/20 text-red-200 shadow-red-500/20'
+                  }`}
+                >
                   {recipe.difficulty}
-                </span>
-                <span className="px-3 py-1 bg-orange-500 text-white rounded-full text-sm font-bold">
+                </Badge>
+                <Badge variant="glow" className="rounded-full text-xs border-orange-400/40 bg-orange-500/20 text-orange-200 shadow-orange-500/20">
                   {recipe.region}
-                </span>
+                </Badge>
                 {recipe.rating > 0 && (
-                  <span className="px-3 py-1 bg-white text-gray-800 rounded-full text-sm font-bold flex items-center gap-1">
-                    <FaStar className="text-yellow-500" />
+                  <Badge variant="glow" className="rounded-full text-xs border-[#FFD07F]/40 bg-[#FFD07F]/20 text-[#FFD07F] shadow-[#FFD07F]/20 flex items-center gap-1.5">
+                    <Star className="h-3.5 w-3.5 fill-[#FFD07F] text-[#FFD07F]" />
                     {recipe.rating.toFixed(1)}
-                  </span>
+                  </Badge>
                 )}
               </div>
             </div>
@@ -95,43 +120,45 @@ export default function RecipeDetailModal({ recipeId, onClose }: RecipeDetailMod
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 bg-[rgba(5,5,5,0.7)]">
           {loading && (
-            <div className="flex items-center justify-center py-12">
-              <span className="loading loading-spinner loading-lg text-orange-500"></span>
+            <div className="flex items-center justify-center py-16">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#FFD07F]"></div>
             </div>
           )}
 
           {error && (
-            <div className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 p-4 rounded-lg">
-              Error: {error}
+            <div className="rounded-3xl border border-red-400/40 bg-red-500/10 backdrop-blur-xl px-6 py-8 text-center shadow-lg shadow-red-500/20">
+              <h3 className="text-xl font-semibold text-red-200">Error loading recipe</h3>
+              <p className="mt-2 text-base text-red-200/80">{error}</p>
             </div>
           )}
 
           {recipe && (
             <>
               {/* Description */}
-              <p className="text-gray-600 dark:text-gray-400 mb-6">{recipe.description}</p>
+              <p className="text-white/80 mb-6 leading-relaxed">{recipe.description}</p>
 
               {/* Quick Stats */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg text-center">
-                  <FaClock className="text-orange-500 text-2xl mx-auto mb-2" />
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Total Time</div>
-                  <div className="text-lg font-bold text-gray-800 dark:text-white">
+                <div className="relative overflow-hidden rounded-2xl border border-white/20 bg-white/[0.08] backdrop-blur-2xl p-5 text-center shadow-lg shadow-black/20">
+                  <Clock className="h-6 w-6 text-[#FFD07F] mx-auto mb-2" strokeWidth={1.5} />
+                  <div className="text-xs text-white/60 mb-1">Total Time</div>
+                  <div className="text-lg font-bold text-white">
                     {formatTime(recipe.total_time_minutes)}
                   </div>
                 </div>
                 
-                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg text-center">
-                  <FaFire className="text-red-500 text-2xl mx-auto mb-2" />
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Calories</div>
-                  <div className="text-lg font-bold text-gray-800 dark:text-white">{recipe.calories}</div>
+                <div className="relative overflow-hidden rounded-2xl border border-white/20 bg-white/[0.08] backdrop-blur-2xl p-5 text-center shadow-lg shadow-black/20">
+                  <Flame className="h-6 w-6 text-[#FF5A2F] mx-auto mb-2" strokeWidth={1.5} />
+                  <div className="text-xs text-white/60 mb-1">Calories</div>
+                  <div className="text-lg font-bold text-white">{recipe.calories}</div>
                 </div>
                 
-                <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg text-center">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Prep + Cook</div>
-                  <div className="text-lg font-bold text-gray-800 dark:text-white">
+                <div className="relative overflow-hidden rounded-2xl border border-white/20 bg-white/[0.08] backdrop-blur-2xl p-5 text-center shadow-lg shadow-black/20">
+                  <Clock className="h-6 w-6 text-emerald-400 mx-auto mb-2" strokeWidth={1.5} />
+                  <div className="text-xs text-white/60 mb-1">Prep + Cook</div>
+                  <div className="text-lg font-bold text-white">
                     {formatTime(recipe.prep_time_minutes)} + {formatTime(recipe.cook_time_minutes)}
                   </div>
                 </div>
@@ -141,45 +168,55 @@ export default function RecipeDetailModal({ recipeId, onClose }: RecipeDetailMod
               <div className="mb-6">
                 <div className="flex flex-wrap gap-2">
                   {recipe.meal_types.map((type) => (
-                    <span
+                    <Badge
                       key={type}
-                      className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-sm rounded-full"
+                      variant="outline"
+                      size="sm"
+                      className="text-xs border-blue-400/40 bg-blue-500/10 text-blue-200"
                     >
                       {type}
-                    </span>
+                    </Badge>
                   ))}
                   {recipe.dietary_tags.map((tag) => (
-                    <span
+                    <Badge
                       key={tag}
-                      className="px-3 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-sm rounded-full"
+                      variant="outline"
+                      size="sm"
+                      className="text-xs border-emerald-400/40 bg-emerald-500/10 text-emerald-200"
                     >
                       {tag}
-                    </span>
+                    </Badge>
                   ))}
                 </div>
               </div>
 
               {/* Tabs */}
-              <div className="flex gap-4 mb-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex gap-4 mb-6 border-b border-white/10">
                 <button
                   onClick={() => setActiveTab('ingredients')}
-                  className={`pb-3 px-4 font-medium transition-colors ${
+                  className={`pb-3 px-4 font-medium transition-colors relative ${
                     activeTab === 'ingredients'
-                      ? 'text-orange-500 border-b-2 border-orange-500'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                      ? 'text-[#FFD07F]'
+                      : 'text-white/60 hover:text-white/80'
                   }`}
                 >
                   Ingredients ({recipe.ingredients.length})
+                  {activeTab === 'ingredients' && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#FF5A2F] via-[#FF7A45] to-[#FFD07F]"></span>
+                  )}
                 </button>
                 <button
                   onClick={() => setActiveTab('steps')}
-                  className={`pb-3 px-4 font-medium transition-colors ${
+                  className={`pb-3 px-4 font-medium transition-colors relative ${
                     activeTab === 'steps'
-                      ? 'text-orange-500 border-b-2 border-orange-500'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                      ? 'text-[#FFD07F]'
+                      : 'text-white/60 hover:text-white/80'
                   }`}
                 >
                   Steps ({recipe.steps.length})
+                  {activeTab === 'steps' && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#FF5A2F] via-[#FF7A45] to-[#FFD07F]"></span>
+                  )}
                 </button>
               </div>
 
@@ -189,19 +226,19 @@ export default function RecipeDetailModal({ recipeId, onClose }: RecipeDetailMod
                   {recipe.ingredients.map((ingredient, index) => (
                     <div
                       key={index}
-                      className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                      className="flex items-center gap-3 p-4 rounded-2xl border border-white/10 bg-white/[0.05] backdrop-blur-xl hover:bg-white/[0.08] transition-all"
                     >
-                      <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                      <div className="w-2 h-2 rounded-full bg-gradient-to-r from-[#FF5A2F] to-[#FFD07F]"></div>
                       <div className="flex-1">
-                        <span className="font-medium text-gray-800 dark:text-white">
+                        <span className="font-medium text-white">
                           {ingredient.name}
                         </span>
                         {' - '}
-                        <span className="text-gray-600 dark:text-gray-400">
+                        <span className="text-white/70">
                           {ingredient.quantity} {ingredient.unit}
                         </span>
                         {ingredient.preparation && (
-                          <span className="text-gray-500 dark:text-gray-500 italic">
+                          <span className="text-white/50 italic">
                             {' '}({ingredient.preparation})
                           </span>
                         )}
@@ -214,31 +251,31 @@ export default function RecipeDetailModal({ recipeId, onClose }: RecipeDetailMod
                   {recipe.steps.map((step, index) => (
                     <div
                       key={index}
-                      className={`p-4 rounded-lg border-2 transition-all ${
+                      className={`p-5 rounded-2xl border-2 transition-all ${
                         completedSteps.includes(index)
-                          ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
-                          : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700'
+                          ? 'border-emerald-400/60 bg-emerald-500/10 backdrop-blur-xl'
+                          : 'border-white/10 bg-white/[0.05] backdrop-blur-xl hover:bg-white/[0.08]'
                       }`}
                     >
-                      <div className="flex items-start gap-3">
+                      <div className="flex items-start gap-4">
                         <button
                           onClick={() => toggleStepCompletion(index)}
-                          className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                          className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all ${
                             completedSteps.includes(index)
-                              ? 'bg-green-500 text-white'
-                              : 'bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400'
+                              ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
+                              : 'border-2 border-white/20 bg-white/[0.08] text-white/70 hover:bg-white/[0.15]'
                           }`}
                         >
                           {completedSteps.includes(index) ? (
-                            <FaCheckCircle />
+                            <CheckCircle2 className="h-5 w-5" strokeWidth={2} />
                           ) : (
                             <span className="text-sm font-bold">{index + 1}</span>
                           )}
                         </button>
                         
                         <div className="flex-1">
-                          <p className={`text-gray-800 dark:text-white ${
-                            completedSteps.includes(index) ? 'line-through' : ''
+                          <p className={`text-white leading-relaxed ${
+                            completedSteps.includes(index) ? 'line-through text-white/50' : ''
                           }`}>
                             {step}
                           </p>
@@ -247,7 +284,7 @@ export default function RecipeDetailModal({ recipeId, onClose }: RecipeDetailMod
                             <img
                               src={recipe.step_image_urls[index]}
                               alt={`Step ${index + 1}`}
-                              className="mt-3 rounded-lg max-w-sm"
+                              className="mt-4 rounded-2xl max-w-md border border-white/10 shadow-lg"
                             />
                           )}
                         </div>
@@ -256,7 +293,7 @@ export default function RecipeDetailModal({ recipeId, onClose }: RecipeDetailMod
                   ))}
                   
                   {completedSteps.length === recipe.steps.length && recipe.steps.length > 0 && (
-                    <div className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 p-4 rounded-lg text-center font-bold">
+                    <div className="rounded-3xl border border-emerald-400/40 bg-emerald-500/10 backdrop-blur-xl p-6 text-center font-bold text-emerald-200 shadow-lg shadow-emerald-500/20">
                       🎉 Congratulations! You've completed all steps!
                     </div>
                   )}
