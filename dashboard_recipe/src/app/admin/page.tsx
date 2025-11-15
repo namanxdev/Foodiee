@@ -1,4 +1,17 @@
-"use client";
+/**
+ * Admin Dashboard
+ * ===============
+ * Complete admin dashboard with all tabs:
+ * 1. Data Manager - View and edit recipes
+ * 2. Export - Export database tables
+ * 3. Mass Generation - Generate multiple recipes
+ * 4. Specific Generation - Generate specific recipe
+ * 5. Validator - Validate and fix recipes
+ * 6. Jobs - View and manage jobs
+ * 7. Config - Manage system configuration (max image generation limits)
+ */
+
+'use client';
 
 import { useState, useEffect } from 'react';
 import { getAdminEmail, setAdminEmail, clearAdminEmail } from '@/services/recipeAdminAPI';

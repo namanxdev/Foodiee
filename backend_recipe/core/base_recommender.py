@@ -36,11 +36,6 @@ class BaseRecommender:
         """Get current LLM instance - must be implemented by subclass"""
         raise NotImplementedError("Subclass must implement llm property")
     
-    @property
-    def vision_llm(self):
-        """Get current vision LLM instance - must be implemented by subclass"""
-        raise NotImplementedError("Subclass must implement vision_llm property")
-    
     # ========================================================
     # Image Generation (Shared across all recommenders)
     # ========================================================

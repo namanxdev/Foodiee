@@ -146,8 +146,8 @@ export interface RecipeStatistics {
 export interface RecipeUpdateRequest {
   name?: string;
   description?: string;
-  ingredients?: string;
-  steps?: string;
+  ingredients?: Array<{ name?: string; ingredient?: string; quantity?: string; unit?: string }>;
+  steps?: string[];
   image_url?: string;
   ingredients_image?: string;
   step_image_urls?: string[];
@@ -164,6 +164,7 @@ export interface MassGenerationRequest {
   fix_steps_images: boolean;
   fix_steps_text: boolean;
   fix_ingredients_text: boolean;
+  mode?: 'generate' | 'load_from_s3';
 }
 
 export interface SpecificGenerationRequest {

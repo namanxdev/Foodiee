@@ -100,7 +100,7 @@ Composition: Clean background, properly plated, restaurant-quality presentation.
         
         # Generate image with Gemini (with retry logic)
         def generate_image():
-            image_base64, _ = image_gen._generate_with_gemini(prompt)
+            image_base64, _ = image_gen._generate_with_imagen(prompt)
             if not image_base64:
                 raise Exception("No image data returned from Gemini")
             return image_base64
@@ -267,7 +267,7 @@ def generate_step_images_with_retry(
             
             # Generate image
             def generate_step_image():
-                image_base64, _ = image_gen._generate_with_gemini(prompt)
+                image_base64, _ = image_gen._generate_with_imagen(prompt)
                 if not image_base64:
                     raise Exception("No image data returned from Gemini")
                 return image_base64
