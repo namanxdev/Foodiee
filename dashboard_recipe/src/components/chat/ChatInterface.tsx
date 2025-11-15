@@ -16,14 +16,6 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { API_CONFIG } from "@/constants";
 import {
@@ -585,20 +577,45 @@ export default function ChatInterface({
 
       const data = await generateStepImage(sessionId, session.user.email);
 
+      console.log("Image generation response:", data);
+
       setMessages((prev) => prev.filter((msg) => msg.content !== "GENERATING_IMAGE"));
 
       if (data.success) {
-        const imageUrl =
-          (typeof data.image_url === "string" && data.image_url) ||
-          (data.image_data ? `data:image/png;base64,${data.image_data}` : "");
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: "",
+        // Prioritize image_url (S3 URL) over base64 image_data
+        let imageUrl = "";
+        if (data.image_url && typeof data.image_url === "string" && data.image_url.trim() !== "") {
+          imageUrl = data.image_url;
+          console.log("Using S3 image URL:", imageUrl);
+        } else if (data.image_data && typeof data.image_data === "string") {
+          imageUrl = `data:image/png;base64,${data.image_data}`;
+          console.log("Using base64 image data");
+        }
+        
+        if (imageUrl) {
+          console.log("Adding image message to chat with URL:", imageUrl);
+          const newMessage = {
+            role: "assistant" as const,
+            content: "", // Only show image, no text
             image: imageUrl,
-          },
-        ]);
+          };
+          console.log("New message object:", newMessage);
+          setMessages((prev) => {
+            const updated = [...prev, newMessage];
+            console.log("Updated messages array:", updated);
+            return updated;
+          });
+        } else {
+          console.warn("No image URL or data found in response:", data);
+          // Fallback if no image but description exists
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "assistant",
+              content: data.description || "Image generation completed, but no image was returned.",
+            },
+          ]);
+        }
 
         setTimeout(async () => {
           if (!session?.user?.email) return;
@@ -703,9 +720,9 @@ export default function ChatInterface({
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
       {isReadOnly && (
-        <div className="rounded-2xl border border-yellow-300/70 bg-yellow-50/80 px-5 py-4 text-sm font-medium text-yellow-900 shadow-sm backdrop-blur">
+        <div className="rounded-2xl border border-yellow-300/70 bg-yellow-50/80 px-5 py-3 text-sm font-medium text-yellow-900 shadow-sm backdrop-blur dark:border-yellow-400/40 dark:bg-yellow-500/10 dark:text-yellow-200">
           <div className="flex items-center gap-3">
             <Lock className="h-4 w-4" />
             <span>Read-only mode: This is a shared session. You can view but not interact.</span>
@@ -714,162 +731,174 @@ export default function ChatInterface({
       )}
 
       {!messagesLoaded ? (
-        <Card className="h-[600px] items-center justify-center border-border/60 bg-white/95 text-center shadow-xl shadow-brand/15 dark:border-border/40 dark:bg-card/90">
-          <CardContent className="flex flex-col items-center gap-4 pt-10">
-            <div className="rounded-2xl border border-orange-200/60 bg-orange-50/80 p-4 text-orange-500 shadow-inner">
+        <div className="flex h-[600px] items-center justify-center rounded-3xl border border-white/20 bg-black/40 text-center shadow-xl shadow-brand/15 backdrop-blur">
+          <div className="flex flex-col items-center gap-4">
+            <div className="rounded-2xl border border-orange-400/40 bg-orange-500/20 p-4 text-orange-400 shadow-inner">
               <Sparkles className="h-6 w-6" />
             </div>
-            <p className="text-base font-semibold text-foreground">Loading your chat history</p>
-            <p className="max-w-sm text-sm text-muted-foreground">
+            <p className="text-base font-semibold text-white">Loading your chat history</p>
+            <p className="max-w-sm text-sm text-white/70">
               We&apos;re fetching your previous cooking steps and recommendations.
             </p>
             <span className="loading loading-spinner loading-lg text-orange-500" />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ) : (
-        <Card className="relative overflow-hidden border border-border/70 bg-white/95 shadow-2xl shadow-brand/20 backdrop-blur dark:border-border/40 dark:bg-card/90">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,229,204,0.35),_transparent_60%)] dark:bg-[radial-gradient(circle_at_top,_rgba(255,140,66,0.2),_transparent_65%)]" />
-          <CardHeader className="relative border-b border-border/60 pb-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex items-start gap-4">
-                <div className="rounded-2xl bg-brand-surface/80 p-3 text-primary shadow-inner shadow-brand/30">
-                  <UtensilsCrossed className="h-6 w-6" strokeWidth={1.6} />
-                </div>
-                <div className="space-y-2">
-                  <CardTitle className="text-2xl font-semibold text-foreground">
-                    Your Cooking Companion
-                  </CardTitle>
-                  <CardDescription className="max-w-xl text-base">
-                    {currentRecipe
-                      ? `Currently walking through ${currentRecipe}. Continue when you're ready.`
-                      : "Choose a recipe to start cooking together or ask for further guidance."}
-                  </CardDescription>
-                  <div className="flex flex-wrap gap-2 text-xs font-medium text-muted-foreground">
-                    <Badge variant="outline" size="sm" className="gap-2">
-                      <Sparkles className="h-3.5 w-3.5" />
-                      Session ID: {sessionId}
-                    </Badge>
-                    {currentRecipe && (
-                      <Badge variant="glow" size="sm" className="gap-2">
-                        <UtensilsCrossed className="h-3.5 w-3.5" />
-                        {currentRecipe}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
+        <div className="flex flex-col rounded-3xl border border-white/20 bg-black/40 shadow-2xl shadow-brand/20 backdrop-blur">
+          {/* Chat Header */}
+          <div className="flex items-center justify-between border-b border-white/20 px-6 py-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-gradient text-white shadow-brand-glow">
+                <UtensilsCrossed className="h-5 w-5" />
               </div>
-              <Badge
-                variant={isReadOnly ? "outline" : "glow"}
-                size="sm"
-                className="gap-2 self-start"
-              >
-                {isReadOnly ? (
-                  <>
-                    <Lock className="h-3.5 w-3.5" />
-                    Read only
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Active session
-                  </>
+              <div>
+                <h3 className="font-semibold text-white">Cooking Assistant</h3>
+                {currentRecipe && (
+                  <p className="text-xs text-white/60">{currentRecipe}</p>
                 )}
-              </Badge>
+              </div>
             </div>
-          </CardHeader>
+            <Badge
+              variant={isReadOnly ? "outline" : "glow"}
+              size="sm"
+              className="gap-2 bg-green-600"
+            >
+              {isReadOnly ? (
+                <>
+                  <Lock className="h-3.5 w-3.5" />
+                  Read only
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Active
+                </>
+              )}
+            </Badge>
+          </div>
 
-          <CardContent className="relative p-0">
-            <ScrollArea className="h-[520px] px-6 py-6">
-              <div className="flex flex-col gap-6">
-                {messages.map((msg, idx) => {
-                  const isUser = msg.role === "user";
-                  const isGenerating = msg.content === "GENERATING_IMAGE";
-                  const showSelection = shouldShowSelection(msg, idx);
+          {/* Chat Messages */}
+          <ScrollArea className="h-[500px] px-4 py-4">
+            <div className="flex flex-col gap-3">
+              {messages.map((msg, idx) => {
+                const isUser = msg.role === "user";
+                const isGenerating = msg.content === "GENERATING_IMAGE";
+                const showSelection = shouldShowSelection(msg, idx);
+                
+                // Debug logging for image messages
+                if (msg.image) {
+                  console.log(`Message ${idx} has image:`, msg.image, "Content:", msg.content);
+                }
 
-                  return (
+                return (
+                  <div
+                    key={`${msg.role}-${idx}-${msg.content?.slice(0, 12)}`}
+                    className={cn("flex w-full gap-2", isUser ? "justify-end" : "justify-start")}
+                  >
+                    {!isUser && (
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-orange-600 text-white shadow-sm">
+                        <UtensilsCrossed className="h-4 w-4" />
+                      </div>
+                    )}
                     <div
-                      key={`${msg.role}-${idx}-${msg.content?.slice(0, 12)}`}
-                      className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}
+                      className={cn(
+                        "flex max-w-[75%] flex-col gap-2",
+                        isUser ? "items-end" : "items-start"
+                      )}
                     >
-                      <div
-                        className={cn(
-                          "flex max-w-full flex-col gap-4",
-                          isUser ? "items-end" : "items-start"
-                        )}
-                      >
-                        {isGenerating ? (
-                          <div className="flex w-full justify-center">
-                            <ImageGeneratingAnimation />
-                          </div>
-                        ) : (
-                          <div
-                            className={cn(
-                              "max-w-[80vw] rounded-3xl border border-border/60 px-5 py-4 text-sm shadow-sm transition-all md:max-w-[70%]",
-                              isUser
-                                ? "bg-brand-gradient text-primary-foreground shadow-brand-glow"
-                                : "bg-white/95 text-foreground backdrop-blur-sm dark:bg-slate-800/80 dark:text-white"
-                            )}
-                          >
-                            <MarkdownRenderer content={msg.content} />
-                            {msg.image && (
+                      {isGenerating ? (
+                        <div className="flex w-full justify-center">
+                          <ImageGeneratingAnimation />
+                        </div>
+                      ) : (
+                        <>
+                          {msg.content && msg.content.trim() && (
+                            <div
+                              className={cn(
+                                "rounded-2xl px-4 py-3 text-sm shadow-sm transition-all",
+                                isUser
+                                  ? "bg-gradient-to-br from-[#FF5A2F] to-[#FF7A45] text-white rounded-br-sm"
+                                  : "bg-white/10 text-white rounded-bl-sm backdrop-blur-sm border border-white/20"
+                              )}
+                            >
+                              <MarkdownRenderer content={msg.content} />
+                            </div>
+                          )}
+                          {msg.image && (
+                            <div className="relative w-full max-w-[500px] aspect-video overflow-hidden rounded-xl border border-white/20 shadow-sm bg-black/10" style={{ minHeight: '200px' }}>
                               <img
                                 src={msg.image}
                                 alt="Step visualization"
-                                className="mt-4 w-full rounded-2xl border border-white/50 object-cover shadow-sm"
+                                className="w-full h-full object-cover"
+                                style={{ display: 'block' }}
+                                onError={(e) => {
+                                  console.error("Image load error:", msg.image);
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                }}
+                                onLoad={() => {
+                                  console.log("Image loaded successfully:", msg.image);
+                                }}
                               />
-                            )}
-                          </div>
-                        )}
-
-                        {showSelection && (
-                          <div className="w-full rounded-3xl border border-border/60 bg-white/90 p-5 shadow-inner shadow-brand/10 backdrop-blur dark:bg-slate-800/80">
-                            <p className="text-sm font-semibold text-muted-foreground">
-                              Select a recipe to start cooking:
-                            </p>
-                            <div className="mt-4 space-y-2">
-                              {recipeNames.map((recipe) => (
-                                <Button
-                                  key={recipe}
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={loading || isReadOnly}
-                                  className="w-full justify-between rounded-2xl border-border/60 bg-white/90 text-left text-sm font-semibold text-foreground transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-800 disabled:cursor-not-allowed dark:bg-slate-900/40 dark:text-white dark:hover:border-orange-400 dark:hover:bg-orange-500/20"
-                                  onClick={() => handleSelectRecipe(recipe)}
-                                >
-                                  {recipe}
-                                  <ArrowRight className="h-4 w-4" />
-                                </Button>
-                              ))}
                             </div>
+                          )}
+                        </>
+                      )}
+
+                      {showSelection && (
+                        <div className="w-full rounded-2xl border border-white/20 bg-black/40 p-4 shadow-inner backdrop-blur-sm">
+                          <p className="mb-3 text-sm font-semibold text-white/90">
+                            Select a recipe to start cooking:
+                          </p>
+                          <div className="space-y-2">
+                            {recipeNames.map((recipe) => (
+                              <Button
+                                key={recipe}
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={loading || isReadOnly}
+                                className="w-full justify-between rounded-xl border-white/20 bg-white/10 text-left text-sm font-semibold text-white transition hover:border-orange-400 hover:bg-orange-500/20 hover:text-white disabled:cursor-not-allowed"
+                                onClick={() => handleSelectRecipe(recipe)}
+                              >
+                                {recipe}
+                                <ArrowRight className="h-4 w-4" />
+                              </Button>
+                            ))}
                           </div>
-                        )}
+                        </div>
+                      )}
+                    </div>
+                    {isUser && (
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-blue-600 text-white shadow-sm">
+                        <span className="text-xs font-semibold">You</span>
                       </div>
-                    </div>
-                  );
-                })}
-
-                {loading && !generatingImage && (
-                  <div className="flex justify-center rounded-2xl border border-dashed border-border/60 bg-muted/40 px-6 py-8 text-center text-sm text-muted-foreground shadow-inner shadow-brand/10">
-                    <div className="flex flex-col items-center gap-3">
-                      <LoadingSpinner message="Processing..." />
-                      <span>Hang tight, we&apos;re working on your request.</span>
-                    </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <div ref={messagesEndRef} />
-            </ScrollArea>
-          </CardContent>
+                );
+              })}
 
+              {loading && !generatingImage && (
+                <div className="flex justify-center py-4">
+                  <div className="flex flex-col items-center gap-2">
+                    <LoadingSpinner message="Processing..." />
+                    <span className="text-xs text-white/70">Hang tight, we&apos;re working on your request.</span>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div ref={messagesEndRef} />
+          </ScrollArea>
+
+          {/* Chat Actions */}
           {currentRecipe && !isReadOnly && (
-            <CardFooter className="relative flex flex-col gap-4 border-t border-border/60 bg-white/90 px-6 py-6 backdrop-blur dark:bg-slate-900/70">
-              <div className="grid gap-3 sm:grid-cols-3">
+            <div className="border-t border-white/20 bg-black/30 px-4 py-4 backdrop-blur-sm">
+              <div className="grid gap-2 sm:grid-cols-3">
                 <Button
                   type="button"
                   variant="gradient"
-                  size="lg"
-                  className="gap-2"
+                  size="sm"
+                  className="gap-2 bg-gradient-to-r from-[#FF5A2F] via-[#FF7A45] to-[#FFD07F] hover:from-[#FF6A3F] hover:via-[#FF8A55] hover:to-[#FFE08F] text-[#1E1E1E] font-semibold shadow-lg shadow-orange-500/40 border-0"
                   disabled={loading}
                   onClick={handleNextStep}
                 >
@@ -881,7 +910,7 @@ export default function ChatInterface({
                   <Button
                     type="button"
                     variant="gradient"
-                    size="lg"
+                    size="sm"
                     className="w-full gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-500/90 hover:to-pink-500/90"
                     disabled={loading || generatingImage || imageLimitReached}
                     onClick={handleGenerateImage}
@@ -891,14 +920,14 @@ export default function ChatInterface({
                   </Button>
 
                   {creditsPopup?.show && (
-                    <div className="absolute bottom-full left-1/2 z-50 mb-3 w-max -translate-x-1/2 rounded-2xl border border-orange-200/70 bg-white/95 px-4 py-3 text-sm shadow-2xl shadow-brand/30 backdrop-blur dark:border-orange-400/40 dark:bg-slate-900/90">
+                    <div className="absolute bottom-full left-1/2 z-50 mb-2 w-max -translate-x-1/2 rounded-xl border border-orange-200/70 bg-white/95 px-3 py-2 text-xs shadow-2xl shadow-brand/30 backdrop-blur dark:border-orange-400/40 dark:bg-slate-900/90">
                       <div className="flex items-center gap-2 font-semibold text-orange-600 dark:text-orange-300">
-                        <ImageIcon className="h-4 w-4" />
+                        <ImageIcon className="h-3.5 w-3.5" />
                         Image credits
                       </div>
                       <div
                         className={cn(
-                          "mt-1 text-sm font-bold",
+                          "mt-1 text-xs font-bold",
                           creditsPopup.allowed
                             ? "text-emerald-600 dark:text-emerald-400"
                             : "text-red-600 dark:text-red-400"
@@ -908,20 +937,15 @@ export default function ChatInterface({
                           ? `${creditsPopup.remaining} / ${creditsPopup.max} remaining`
                           : "Limit reached"}
                       </div>
-                      {!creditsPopup.allowed && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Try again tomorrow for fresh credits.
-                        </p>
-                      )}
                     </div>
                   )}
                 </div>
 
                 <Button
                   type="button"
-                  variant="outline"
-                  size="lg"
-                  className="gap-2"
+                  variant="gradient"
+                  size="sm"
+                  className="gap-2 bg-gradient-to-r from-amber-600 via-orange-500 to-amber-600 hover:from-amber-500 hover:via-orange-400 hover:to-amber-500 text-white border-0 shadow-lg shadow-amber-500/30"
                   disabled={loading}
                   onClick={handleSkip}
                 >
@@ -931,13 +955,13 @@ export default function ChatInterface({
               </div>
 
               {currentStep > 0 && (
-                <p className="text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="mt-3 text-center text-xs font-semibold uppercase tracking-wide text-white/70">
                   Step {currentStep} of {totalSteps}
                 </p>
               )}
-            </CardFooter>
+            </div>
           )}
-        </Card>
+        </div>
       )}
     </div>
   );

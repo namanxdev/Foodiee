@@ -20,9 +20,9 @@ export function GlassCard({
   return (
     <div
       className={clsx(
-        "relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-3xl transition-transform duration-500",
+        "relative overflow-hidden rounded-3xl border bg-white/5 p-6 backdrop-blur-3xl transition-all duration-500",
         "hover:-translate-y-1 hover:shadow-[0_25px_55px_-20px_rgba(255,90,47,0.55)]",
-        highlight && "ring-2 ring-[#FFD07F]/60",
+        highlight ? "border-[#FFD07F] shadow-[0_0_20px_rgba(255,208,127,0.4)]" : "border-white/10",
         className,
       )}
     >

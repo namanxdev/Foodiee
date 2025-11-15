@@ -149,9 +149,15 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
+    import sys
+    import io
+    
+    # Fix Windows console encoding for emojis
+    if sys.platform == "win32":
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     
     print("="*60)
-    print("🍳 Recipe Recommender API with RAG + Image Generation")
+    print("Recipe Recommender API with RAG + Image Generation")
     print("="*60)
     
     uvicorn.run(

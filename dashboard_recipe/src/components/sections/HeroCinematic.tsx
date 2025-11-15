@@ -21,7 +21,7 @@ const heroPoints = [
 export function HeroCinematic() {
   return (
     <section className="relative isolate overflow-hidden bg-gradient-to-br from-[#1E1E1E] via-[#0A0A0A] to-black">
-      <div className="absolute inset-0 -z-20 opacity-75">
+      <div className="fixed top-0 left-0 right-0 h-screen -z-20 opacity-75">
         <video
           className="h-full w-full object-cover"
           autoPlay
@@ -37,6 +37,7 @@ export function HeroCinematic() {
         </video>
         <div className="absolute inset-0 bg-hero-gradient mix-blend-overlay opacity-85" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/65 to-[#0D0E10]" />
+        <div className="absolute inset-0 [background:linear-gradient(to_bottom,transparent_0%,transparent_50%,rgba(0,0,0,0.3)_60%,rgba(0,0,0,0.6)_75%,rgba(0,0,0,0.9)_85%,black_100%)]" />
       </div>
 
       <div className="relative mx-auto flex min-h-[90vh] max-w-6xl flex-col gap-16 px-6 pb-24 pt-36 sm:px-10 md:px-12 lg:px-16">

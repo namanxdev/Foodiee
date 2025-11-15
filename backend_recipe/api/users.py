@@ -14,6 +14,17 @@ async def user_signin(user_data: UserSignInRequest):
     """
     Create or update user when they sign in with NextAuth
     Call this endpoint from your NextAuth callback
+    
+    Request body:
+    - email (required): User's email address
+    - name (optional): User's full name
+    - image (optional): User's profile image URL
+    - google_id (optional): Google OAuth ID
+    
+    Returns:
+    - success: Boolean indicating if operation was successful
+    - message: Status message
+    - user: User data object (if successful)
     """
     try:
         result = user_db_service.create_or_update_user({
@@ -22,9 +33,30 @@ async def user_signin(user_data: UserSignInRequest):
             "image": user_data.image,
             "google_id": user_data.google_id
         })
-        return result
+        
+        # Check if database service returned an error
+        if not result.get("success", False):
+            error_msg = result.get("error", "Unknown error occurred")
+            raise HTTPException(
+                status_code=400,
+                detail=error_msg
+            )
+        
+        # Ensure response matches UserResponse model
+        return UserResponse(
+            success=result.get("success", True),
+            message=result.get("message", "User operation completed"),
+            user=result.get("user")
+        )
+    except HTTPException:
+        # Re-raise HTTP exceptions (like validation errors)
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Handle unexpected errors
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {str(e)}"
+        )
 
 @router.get("/{email}")
 async def get_user(email: str):

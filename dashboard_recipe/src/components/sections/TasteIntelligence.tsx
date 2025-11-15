@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 
 const featureCards = [
@@ -27,6 +28,17 @@ const featureCards = [
 ];
 
 export function TasteIntelligence() {
+  const [activeCardIndex, setActiveCardIndex] = useState(0);
+  const totalCards = featureCards.length;
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveCardIndex((prev) => (prev + 1) % totalCards);
+    }, 6000); // Rotate every 6 seconds
+
+    return () => clearInterval(interval);
+  }, [totalCards]);
+
   return (
     <section className="relative mx-auto max-w-6xl px-6 py-24 sm:px-10 md:px-12 lg:px-16">
       <div className="text-center">
@@ -46,7 +58,7 @@ export function TasteIntelligence() {
             key={card.title}
             eyebrow={card.eyebrow}
             title={card.title}
-            highlight={index === 0}
+            highlight={index === activeCardIndex}
             className="bg-gradient-to-br from-white/6 via-white/4 to-white/2"
           >
             <p>{card.description}</p>

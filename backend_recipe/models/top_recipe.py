@@ -9,10 +9,10 @@ from typing import List, Optional
 
 class IngredientDetail(BaseModel):
     """Single ingredient with quantity and preparation details"""
-    quantity: str = Field(..., description="Ingredient quantity (e.g., '2', '1/2')")
-    unit: str = Field(..., description="Measurement unit (e.g., 'cups', 'tbsp')")
+    quantity: str = Field(default="", description="Ingredient quantity (e.g., '2', '1/2')")
+    unit: str = Field(default="", description="Measurement unit (e.g., 'cups', 'tbsp')")
     name: str = Field(..., description="Ingredient name")
-    preparation_note: str = Field(default="", description="Preparation instructions (e.g., 'chopped', 'diced')")
+    preparation: Optional[str] = Field(default=None, description="Preparation instructions (e.g., 'chopped', 'diced')")
 
 
 class TasteDetail(BaseModel):

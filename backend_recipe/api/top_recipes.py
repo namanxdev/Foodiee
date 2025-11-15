@@ -40,6 +40,65 @@ router = APIRouter(prefix="/api/top-recipes", tags=["top-recipes"])
 
 def convert_recipe_to_model(recipe: TopRecipe) -> TopRecipeModel:
     """Convert TopRecipe dataclass to TopRecipeModel Pydantic model"""
+    # Convert ingredients, handling None values and field name mapping
+    converted_ingredients = []
+    for ing in recipe.ingredients:
+        try:
+            # Normalize ingredient to dict
+            if isinstance(ing, dict):
+                ing_dict = ing.copy()
+            else:
+                # Convert object attributes to dict
+                ing_dict = {
+                    "name": getattr(ing, "name", None),
+                    "quantity": getattr(ing, "quantity", None),
+                    "unit": getattr(ing, "unit", None),
+                    "preparation": getattr(ing, "preparation", None) or getattr(ing, "preparation_note", None)
+                }
+            
+            # Remove None values that might cause issues
+            # Convert None to empty string for string fields upfront
+            if ing_dict.get("quantity") is None:
+                ing_dict["quantity"] = ""
+            if ing_dict.get("unit") is None:
+                ing_dict["unit"] = ""
+            
+            # Ensure all required fields have valid values (handle None)
+            # Extract values, converting None to empty string for required fields
+            name = ing_dict.get("name")
+            if not name:  # Skip ingredients without a name
+                continue
+            
+            quantity = ing_dict.get("quantity")
+            unit = ing_dict.get("unit")
+            preparation = ing_dict.get("preparation") or ing_dict.get("preparation_note")
+            
+            # Convert None to empty string for required string fields
+            # This is critical - Pydantic will validate None even with defaults if explicitly passed
+            quantity_str = "" if quantity is None else str(quantity)
+            unit_str = "" if unit is None else str(unit)
+            preparation_str = None if preparation is None else str(preparation)
+            
+            # Create ingredient dict with guaranteed non-None values
+            ingredient_data = {
+                "name": str(name) if name else "",
+                "quantity": quantity_str if quantity_str is not None else "",
+                "unit": unit_str if unit_str is not None else "",
+            }
+            
+            # Only add preparation if it's not None
+            if preparation_str is not None:
+                ingredient_data["preparation"] = preparation_str
+            
+            try:
+                ingredient = IngredientDetail(**ingredient_data)
+                converted_ingredients.append(ingredient)
+            except Exception:
+                # Skip this ingredient and continue
+                continue
+        except Exception:
+            continue
+    
     return TopRecipeModel(
         id=recipe.id,
         name=recipe.name,
@@ -54,7 +113,7 @@ def convert_recipe_to_model(recipe: TopRecipe) -> TopRecipeModel:
         total_time_minutes=recipe.total_time_minutes,
         servings=recipe.servings,
         calories=recipe.calories,
-        ingredients=[IngredientDetail(**ing) for ing in recipe.ingredients],
+        ingredients=converted_ingredients,
         steps=recipe.steps,
         image_url=recipe.image_url,
         step_image_urls=recipe.step_image_urls,
@@ -161,7 +220,12 @@ async def get_single_recipe(recipe_id: int):
         if not recipe:
             raise HTTPException(status_code=404, detail=f"Recipe {recipe_id} not found")
         
-        return convert_recipe_to_model(recipe)
+        # Convert to Pydantic model
+        try:
+            recipe_model = convert_recipe_to_model(recipe)
+            return recipe_model
+        except Exception as convert_error:
+            raise HTTPException(status_code=500, detail=f"Error converting recipe: {str(convert_error)}")
         
     except HTTPException:
         raise
