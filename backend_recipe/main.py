@@ -2,6 +2,7 @@
 FastAPI Backend for Recipe Recommendation System with RAG + Image Generation
 """
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 import config  # Import module to access variables dynamically
 
@@ -25,35 +26,16 @@ from api.preferences import set_recommender as set_preferences_recommender
 from api.recipes import set_recommender as set_recipes_recommender
 from api.images import set_recommender as set_images_recommender
 
-# ============================================================
-# FastAPI App Setup
-# ============================================================
-app = FastAPI(
-    title="Recipe Recommender API",
-    description="AI-powered recipe recommendation with RAG and image generation",
-    version="1.0.0"
-)
-
-# Add CORS middleware
-from fastapi.middleware.cors import CORSMiddleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # Global recommender instance
 recommender = None
 
 # ============================================================
-# Startup Event
+# Lifespan Context Manager
 # ============================================================
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize all components on startup"""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize all components on startup and cleanup on shutdown"""
     global recommender
     
     print("🚀 Starting Recipe Recommender API...")
@@ -95,6 +77,31 @@ async def startup_event():
         import traceback
         traceback.print_exc()
         raise
+    
+    yield
+    
+    # Clean up resources on shutdown
+    print("🛑 Shutting down Recipe Recommender API...")
+
+# ============================================================
+# FastAPI App Setup
+# ============================================================
+app = FastAPI(
+    title="Recipe Recommender API",
+    description="AI-powered recipe recommendation with RAG and image generation",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Add CORS middleware
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ============================================================
 # Include API Routes

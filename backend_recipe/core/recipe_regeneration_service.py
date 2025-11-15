@@ -124,7 +124,7 @@ class RecipeRegenerationService:
             
             # Generate image
             def generate_image():
-                image_base64, _ = self.get_image_generator()._generate_with_gemini(prompt)
+                image_base64, _ = self.get_image_generator()._generate_with_imagen(prompt)
                 if not image_base64:
                     raise Exception("No image data returned from Gemini")
                 return image_base64
@@ -217,7 +217,7 @@ class RecipeRegenerationService:
             
             # Generate image
             def generate_image():
-                image_base64, _ = self.get_image_generator()._generate_with_gemini(prompt)
+                image_base64, _ = self.get_image_generator()._generate_with_imagen(prompt)
                 if not image_base64:
                     raise Exception("No image data returned from Gemini")
                 return image_base64
@@ -421,7 +421,7 @@ class RecipeRegenerationService:
                 
                 # Generate image
                 def generate_step_image():
-                    image_base64, _ = self.get_image_generator()._generate_with_gemini(prompt)
+                    image_base64, _ = self.get_image_generator()._generate_with_imagen(prompt)
                     if not image_base64:
                         raise Exception("No image data returned from Gemini")
                     return image_base64

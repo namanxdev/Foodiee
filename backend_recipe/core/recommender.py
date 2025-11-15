@@ -38,12 +38,6 @@ class RecipeRecommender(BaseRecommender):
         return get_llm()
     
     @property
-    def vision_llm(self):
-        """Get current vision LLM instance"""
-        from config import get_vision_llm
-        return get_vision_llm()
-    
-    @property
     def vector_store(self):
         """Get current vector store instance"""
         from config import get_recipe_vector_store

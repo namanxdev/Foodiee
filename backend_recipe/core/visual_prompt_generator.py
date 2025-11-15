@@ -206,7 +206,7 @@ class EnhancedImageGenerator:
         full_prompt = self._combine_prompts_for_gemini(prompts)
         
         # Use base generator with enhanced prompt
-        return self.base_generator._generate_with_gemini(full_prompt)
+        return self.base_generator._generate_with_imagen(full_prompt)
     
     def _combine_prompts_for_gemini(self, prompts: Dict[str, str]) -> str:
         """Combine positive and negative prompts for Gemini API"""

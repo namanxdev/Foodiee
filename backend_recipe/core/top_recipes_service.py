@@ -318,132 +318,31 @@ def insert_recipe(
     return recipe_id
 
 
-def update_recipe(
-    recipe_id: int,
-    name: Optional[str] = None,
-    description: Optional[str] = None,
-    region: Optional[str] = None,
-    tastes: Optional[List[Dict[str, int]]] = None,
-    meal_types: Optional[List[str]] = None,
-    dietary_tags: Optional[List[str]] = None,
-    difficulty: Optional[str] = None,
-    prep_time_minutes: Optional[int] = None,
-    cook_time_minutes: Optional[int] = None,
-    total_time_minutes: Optional[int] = None,
-    servings: Optional[int] = None,
-    calories: Optional[int] = None,
-    ingredients: Optional[List[Dict[str, str]]] = None,
-    steps: Optional[List[str]] = None,
-    image_url: Optional[str] = None,
-    step_image_urls: Optional[List[str]] = None,
-    rating: Optional[float] = None,
-    popularity_score: Optional[float] = None,
-    ingredients_image: Optional[str] = None,
-    steps_beginner: Optional[List[str]] = None,
-    steps_advanced: Optional[List[str]] = None,
-    validation_status: Optional[str] = None,
-    data_quality_score: Optional[int] = None,
-    is_complete: Optional[bool] = None
-) -> bool:
-    """Update specific fields of an existing recipe"""
+def update_recipe(recipe_id: int, **kwargs) -> bool:
+    """
+    Update specific fields of an existing recipe.
+    Accepts any combination of fields as keyword arguments.
+    Pass None to clear/remove a field value.
+    """
     updates = []
     params = []
     
-    if name is not None:
-        updates.append("name = %s")
-        params.append(name)
+    # Fields that should be JSON serialized
+    json_fields = {
+        'tastes', 'ingredients', 'steps_beginner', 'steps_advanced',
+        'step_image_urls', 'steps_beginner_images', 'steps_advanced_images',
+        'ingredient_image_urls'
+    }
     
-    if description is not None:
-        updates.append("description = %s")
-        params.append(description)
-    
-    if region is not None:
-        updates.append("region = %s")
-        params.append(region)
-    
-    if tastes is not None:
-        updates.append("tastes = %s")
-        params.append(json.dumps(tastes))
-    
-    if meal_types is not None:
-        updates.append("meal_types = %s")
-        params.append(meal_types)
-    
-    if dietary_tags is not None:
-        updates.append("dietary_tags = %s")
-        params.append(dietary_tags)
-    
-    if difficulty is not None:
-        updates.append("difficulty = %s")
-        params.append(difficulty)
-    
-    if prep_time_minutes is not None:
-        updates.append("prep_time_minutes = %s")
-        params.append(prep_time_minutes)
-    
-    if cook_time_minutes is not None:
-        updates.append("cook_time_minutes = %s")
-        params.append(cook_time_minutes)
-    
-    if total_time_minutes is not None:
-        updates.append("total_time_minutes = %s")
-        params.append(total_time_minutes)
-    
-    if servings is not None:
-        updates.append("servings = %s")
-        params.append(servings)
-    
-    if calories is not None:
-        updates.append("calories = %s")
-        params.append(calories)
-    
-    if ingredients is not None:
-        updates.append("ingredients = %s")
-        params.append(json.dumps(ingredients))
-    
-    if steps is not None:
-        updates.append("steps = %s")
-        params.append(steps)
-    
-    if image_url is not None:
-        updates.append("image_url = %s")
-        params.append(image_url)
-    
-    if step_image_urls is not None:
-        updates.append("step_image_urls = %s")
-        params.append(step_image_urls)
-    
-    if rating is not None:
-        updates.append("rating = %s")
-        params.append(rating)
-    
-    if popularity_score is not None:
-        updates.append("popularity_score = %s")
-        params.append(popularity_score)
-    
-    if ingredients_image is not None:
-        updates.append("ingredients_image = %s")
-        params.append(ingredients_image)
-    
-    if steps_beginner is not None:
-        updates.append("steps_beginner = %s")
-        params.append(json.dumps(steps_beginner))
-    
-    if steps_advanced is not None:
-        updates.append("steps_advanced = %s")
-        params.append(json.dumps(steps_advanced))
-    
-    if validation_status is not None:
-        updates.append("validation_status = %s")
-        params.append(validation_status)
-    
-    if data_quality_score is not None:
-        updates.append("data_quality_score = %s")
-        params.append(data_quality_score)
-    
-    if is_complete is not None:
-        updates.append("is_complete = %s")
-        params.append(is_complete)
+    # Process each provided field
+    for field, value in kwargs.items():
+        # Serialize JSON fields
+        if field in json_fields and value is not None:
+            value = json.dumps(value)
+        
+        # Add to update query
+        updates.append(f"{field} = %s")
+        params.append(value)
     
     if not updates:
         return False

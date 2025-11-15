@@ -10,3 +10,4 @@ node_modules/
 backend_recipe/run_image_generation_migration.py
 *.sql
 backend_recipe/reset_stuck_job.py
+backend_recipe/scripts/
