@@ -37,11 +37,11 @@ from api.images import set_recommender as set_images_recommender
 # NOTE: When allow_credentials=True, you cannot use "*" as a wildcard origin.
 # Add your deployed frontend URL here after deployment.
 ALLOWED_ORIGINS = [
-    "http://localhost:3000",     
+    "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "https://foodiee-six-lac.vercel.app",    
-    "*"  
-   
+    "https://foodiee-six-lac.vercel.app",
+    # NOTE: Cannot use "*" wildcard when allow_credentials=True
+    # Add specific origins only
 ]
 
 # Global recommender instance
