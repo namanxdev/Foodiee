@@ -28,7 +28,28 @@ export function MassGenerationTab() {
   
   // Modal state
   const [showModal, setShowModal] = useState(false);
-  const [existingImages, setExistingImages] = useState<any>(null);
+  const [existingImages, setExistingImages] = useState<{
+    has_existing_images: boolean;
+    count: number;
+    recipes: Array<{
+      recipe_id: number;
+      recipe_name: string;
+      existing_images: {
+        main_image: string | null;
+        ingredients_image: string | null;
+        beginner_step_images: Array<{
+          url: string;
+          step_index?: number;
+          step_number?: number;
+        }>;
+        advanced_step_images: Array<{
+          url: string;
+          step_index?: number;
+          step_number?: number;
+        }>;
+      };
+    }>;
+  } | null>(null);
   const [isChecking, setIsChecking] = useState(false);
 
   // Load statistics on mount
