@@ -1,0 +1,5 @@
+# Exclude TypeScript directories from language statistics
+dashboard_recipe/types/** linguist-vendored
+dashboard_recipe/src/types/** linguist-vendored
+dashboard_recipe/src/components/** linguist-vendored
+
