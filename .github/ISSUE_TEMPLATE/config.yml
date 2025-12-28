@@ -1,0 +1,9 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 💬 Discussion & Questions
+    url: https://github.com/chetanr25/Foodiee/discussions
+    about: Ask questions and discuss ideas with the community
+  - name: 📖 Documentation
+    url: https://github.com/chetanr25/Foodiee#readme
+    about: Check the README and contributing guide for more information
+
