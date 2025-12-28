@@ -16,8 +16,8 @@ This guide will help you get started with your first contribution.
 
 ### 2. Fork & Clone
 ```bash
-git clone https://github.com/chetanr25/Foodiee.git
-cd Foodiee
+git clone https://github.com/chetanr25/foodiee.git
+cd foodiee
 ```
 
 ### 3. Backend Intelligence Layer (FastAPI)
@@ -63,7 +63,7 @@ npm run dev
 ## 🛠️ Contribution Workflow
 
 ### 1. Find an Issue
-Check the [Issue Tracker](https://github.com/chetanr25/Foodiee/issues) for tasks labeled `good-first-issue` or `help-wanted`. If you want to propose a new feature, please open an issue first to discuss the architectural implications.
+Check the [Issue Tracker](https://github.com/chetanr25/foodiee/issues) for tasks labeled `good-first-issue` or `help-wanted`. If you want to propose a new feature, please open an issue first to discuss the architectural implications.
 
 ### 2. Branching Strategy
 We follow a standard feature-branch workflow:
