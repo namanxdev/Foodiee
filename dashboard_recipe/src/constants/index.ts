@@ -15,10 +15,21 @@
 function normalizeApiUrl(url: string | undefined): string {
   if (!url) return "http://localhost:8000";
   
-  // If it's an EC2 instance URL with HTTPS, convert to HTTP
-  // EC2 instances typically don't have valid SSL certificates unless configured
-  if (url.startsWith("https://") && url.includes("ec2-") && url.includes(".compute.amazonaws.com")) {
-    return url.replace("https://", "http://");
+  // Preserve HTTPS URLs - required when frontend is served over HTTPS (e.g., Vercel)
+  // Mixed content (HTTPS page requesting HTTP resource) is blocked by browsers
+  if (url.startsWith("https://")) {
+    return url;
+  }
+  
+  // For localhost, HTTP is fine
+  if (url.includes("localhost") || url.includes("127.0.0.1")) {
+    return url;
+  }
+  
+  // For production EC2 instances, ensure HTTPS is used
+  // If environment variable is set to HTTP, convert to HTTPS
+  if (url.startsWith("http://") && url.includes("ec2-") && url.includes(".compute.amazonaws.com")) {
+    return url.replace("http://", "https://");
   }
   
   return url;
