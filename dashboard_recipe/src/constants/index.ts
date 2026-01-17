@@ -9,9 +9,8 @@
 // ============================================================================
 
 /**
- * Normalize API URL
- * Preserves HTTPS URLs for production (required for Vercel HTTPS frontend)
- * Uses HTTP only for localhost development
+ * Normalize API URL to handle SSL certificate issues
+ * Converts HTTPS EC2 URLs to HTTP if they don't have valid certificates
  */
 function normalizeApiUrl(url: string | undefined): string {
   if (!url) return "http://localhost:8000";
